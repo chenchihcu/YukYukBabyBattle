@@ -10,7 +10,12 @@ export const TILE = {
   TREES: 4,
   ICE: 5,
   BASE: 6,
-  BASE_STEEL: 7
+  BASE_STEEL: 7,
+  SAND: 8,         // 黃沙/泥沼 (減速 50%)
+  BOOST: 9,        // 高科技加速地轨 (加速 80%)
+  LAVA: 10,        // 熔岩湖 (熾熱粒子 & 灼燒損害)
+  PORTAL: 11,      // 時空躍遷傳送門 (角位點對點傳送)
+  SHIELD_FIELD: 12 // 脈衝電磁防護欄
 };
 
 // 超級任天堂 (SNES) 經典 16-bit 專屬調色盤與地形渲染輔助器
@@ -37,13 +42,76 @@ export const SNES_PALETTE = {
   ICE_HIGHLIGHT: '#e0f7fa',
   ICE_SHADOW: '#4dd0e1',
 
+  SAND_MAIN: '#d4a373',
+  SAND_DARK: '#bc8a5f',
+  SAND_LIGHT: '#faedcd',
+
+  BOOST_MAIN: '#00f5d4',
+  BOOST_GLOW: '#7bf1a8',
+
+  LAVA_MAIN: '#ff4800',
+  LAVA_GLOW: '#ff7b00',
+
+  PORTAL_MAIN: '#7209b7',
+  PORTAL_GLOW: '#f72585',
+
+  SHIELD_MAIN: '#4cc9f0',
+
   GOLD_BASE: '#ffb300',
   GOLD_HIGHLIGHT: '#ffe57f',
   GOLD_SHADOW: '#ff6f00'
 };
 
+// 64-bit 次世代主機 (N64 Ultra 64 時代) 擬真多邊形調色盤與 3D 質感光影參數
+export const N64_PALETTE = {
+  BRICK_BASE: '#d84315',
+  BRICK_TOP: '#ff7043',
+  BRICK_SIDE: '#bf360c',
+  BRICK_BEVEL: '#ffab91',
+  BRICK_MORTAR: '#27120a',
+
+  STEEL_BASE: '#546e7a',
+  STEEL_TOP: '#90a4ae',
+  STEEL_SIDE: '#37474f',
+  STEEL_BEVEL: '#eceff1',
+  STEEL_GLINT: '#ffffff',
+
+  WATER_DEEP: '#01579b',
+  WATER_MID: '#0288d1',
+  WATER_CREST: '#4fc3f7',
+  WATER_FOAM: '#e0f7fa',
+
+  TREES_DEEP: '#0b3c11',
+  TREES_TOP: '#2e7d32',
+  TREES_HIGH: '#81c784',
+
+  ICE_DEEP: '#00838f',
+  ICE_TOP: '#4dd0e1',
+  ICE_GLINT: '#ffffff',
+
+  GOLD_BASE: '#ff8f00',
+  GOLD_TOP: '#ffc107',
+  GOLD_GLOW: '#ffe082',
+
+  TANK_PLAYER1_BASE: '#f57f17',
+  TANK_PLAYER1_TOP: '#fbc02d',
+  TANK_PLAYER1_DARK: '#e65100',
+  TANK_PLAYER2_BASE: '#00838f',
+  TANK_PLAYER2_TOP: '#00bcd4',
+  TANK_PLAYER2_DARK: '#004d40',
+
+  TANK_ENEMY_NORMAL_BASE: '#c62828',
+  TANK_ENEMY_NORMAL_TOP: '#e53935',
+  TANK_ENEMY_FAST_BASE: '#ef6c00',
+  TANK_ENEMY_FAST_TOP: '#fb8c00',
+  TANK_ENEMY_HEAVY_BASE: '#283593',
+  TANK_ENEMY_HEAVY_TOP: '#3f51b5'
+};
+
 export const MAP_SIZE = 26; // 26x26 經典大格
+export const EXTENDED_MAP_SIZE = 52; // 52x52 戰術大地圖大格
 export const SUB_MAP_SIZE = 52; // 52x52 1/4 微觀小格
+export const EXTENDED_SUB_MAP_SIZE = 104; // 104x104 微觀小格
 export const SUB_TILE_SIZE = 12; // 每小格 12px
 
 export class MapDataGenerator {
@@ -148,15 +216,101 @@ export class MapDataGenerator {
     return grid;
   }
 
-  // 將 26x26 大網格轉換為 52x52 (1/4 碎裂微觀網格)
-  static convertToSubMap(grid26) {
-    const subGrid = Array.from({ length: SUB_MAP_SIZE }, () => Array(SUB_MAP_SIZE).fill(TILE.EMPTY));
-    if (!grid26 || !Array.isArray(grid26)) return subGrid;
+  // 生成 52x52 戰術擴展大地圖（中央包含 26x26 的 200 關核心）
+  static generateExtendedStage(stageNum) {
+    const extGrid = Array.from({ length: EXTENDED_MAP_SIZE }, () => Array(EXTENDED_MAP_SIZE).fill(TILE.EMPTY));
+    const coreGrid = this.generateStage(stageNum);
 
+    const offsetR = 13;
+    const offsetC = 13;
+
+    // 1. 將 26x26 核心置於中央 (13..38, 13..38)
     for (let r = 0; r < MAP_SIZE; r++) {
-      if (!grid26[r]) continue;
       for (let c = 0; c < MAP_SIZE; c++) {
-        const t = grid26[r][c];
+        extGrid[r + offsetR][c + offsetC] = coreGrid[r][c];
+      }
+    }
+
+    // 2. 偽隨機外圍周邊野外多元地形生成 (0..12 & 39..51)
+    let seed = stageNum * 7777 + 12345;
+    const rnd = () => {
+      seed = (seed * 9301 + 49297) % 233280;
+      return seed / 233280;
+    };
+
+    for (let r = 0; r < EXTENDED_MAP_SIZE; r++) {
+      for (let c = 0; c < EXTENDED_MAP_SIZE; c++) {
+        // 跳過中央核心區
+        if (r >= offsetR && r < offsetR + MAP_SIZE && c >= offsetC && c < offsetC + MAP_SIZE) {
+          continue;
+        }
+
+        // 外圍防線鋼牆保護
+        if (r === 0 || r === EXTENDED_MAP_SIZE - 1 || c === 0 || c === EXTENDED_MAP_SIZE - 1) {
+          if ((r + c) % 4 === 0) extGrid[r][c] = TILE.STEEL;
+          continue;
+        }
+
+        const val = rnd();
+        if (val < 0.32) {
+          const typeVal = rnd();
+          if (typeVal < 0.25) extGrid[r][c] = TILE.BRICK;
+          else if (typeVal < 0.42) extGrid[r][c] = TILE.TREES;
+          else if (typeVal < 0.58) extGrid[r][c] = TILE.WATER;
+          else if (typeVal < 0.70) extGrid[r][c] = TILE.ICE;
+          else if (typeVal < 0.82) extGrid[r][c] = TILE.SAND;    // 泥沼/減速沙地
+          else if (typeVal < 0.92) extGrid[r][c] = TILE.LAVA;    // 熔岩湖
+          else extGrid[r][c] = TILE.STEEL;
+        }
+      }
+    }
+
+    // 3. 佈置外圍兩側高科技 BOOST 加速軌道 (專屬高速走位區)
+    for (let i = 2; i <= 10; i++) {
+      extGrid[i][6] = TILE.BOOST;
+      extGrid[51 - i][45] = TILE.BOOST;
+      extGrid[6][51 - i] = TILE.BOOST;
+      extGrid[45][i] = TILE.BOOST;
+    }
+
+    // 4. 四角置放時空躍遷傳送門 (PORTAL)
+    extGrid[3][3] = TILE.PORTAL;
+    extGrid[3][48] = TILE.PORTAL;
+    extGrid[48][3] = TILE.PORTAL;
+    extGrid[48][48] = TILE.PORTAL;
+
+    // 清理 PORTAL 站點周圍 3x3 區域
+    const portalSpots = [[3, 3], [3, 48], [48, 3], [48, 48]];
+    portalSpots.forEach(([pr, pc]) => {
+      for (let dr = -1; dr <= 1; dr++) {
+        for (let dc = -1; dc <= 1; dc++) {
+          if (dr === 0 && dc === 0) continue;
+          const nr = pr + dr;
+          const nc = pc + dc;
+          if (nr >= 0 && nr < EXTENDED_MAP_SIZE && nc >= 0 && nc < EXTENDED_MAP_SIZE) {
+            extGrid[nr][nc] = TILE.EMPTY;
+          }
+        }
+      }
+    });
+
+    return extGrid;
+  }
+
+  // 將大網格轉換為碎裂微觀網格 (26x26 -> 52x52 或 52x52 -> 104x104)
+  static convertToSubMap(grid) {
+    if (!grid || !Array.isArray(grid)) return [];
+    const rows = grid.length;
+    const cols = grid[0] ? grid[0].length : rows;
+    const subRows = rows * 2;
+    const subCols = cols * 2;
+
+    const subGrid = Array.from({ length: subRows }, () => Array(subCols).fill(TILE.EMPTY));
+
+    for (let r = 0; r < rows; r++) {
+      if (!grid[r]) continue;
+      for (let c = 0; c < cols; c++) {
+        const t = grid[r][c];
         subGrid[r * 2][c * 2] = t;
         subGrid[r * 2][c * 2 + 1] = t;
         subGrid[r * 2 + 1][c * 2] = t;

@@ -1,8 +1,4 @@
-/* =========================================================
-   LevelManager.js - 關卡載入、迷你地圖雷達與下一關預覽
-   ========================================================= */
-
-import { MapDataGenerator, TILE, MAP_SIZE } from './MapData.js';
+import { MapDataGenerator, TILE, MAP_SIZE, EXTENDED_MAP_SIZE } from './MapData.js';
 
 export class LevelManager {
   constructor() {
@@ -10,14 +6,16 @@ export class LevelManager {
     this.maxStages = 200;
     this.currentMap = [];
     this.customMap = null;
+    this.isExtendedMode = true;
   }
 
-  loadStage(stageNum) {
+  loadStage(stageNum, extended = true) {
     this.currentStage = Math.max(1, Math.min(this.maxStages, stageNum));
+    this.isExtendedMode = extended;
     if (this.customMap && stageNum === this.currentStage) {
       this.currentMap = JSON.parse(JSON.stringify(this.customMap));
     } else {
-      this.currentMap = MapDataGenerator.generateStage(this.currentStage);
+      this.currentMap = extended ? MapDataGenerator.generateExtendedStage(this.currentStage) : MapDataGenerator.generateStage(this.currentStage);
     }
     return this.currentMap;
   }
@@ -35,7 +33,7 @@ export class LevelManager {
     } else {
       this.currentStage = 1;
     }
-    return this.loadStage(this.currentStage);
+    return this.loadStage(this.currentStage, this.isExtendedMode);
   }
 
   prevStage() {
@@ -45,23 +43,25 @@ export class LevelManager {
     } else {
       this.currentStage = this.maxStages;
     }
-    return this.loadStage(this.currentStage);
+    return this.loadStage(this.currentStage, this.isExtendedMode);
   }
 
-  // ===== 繪製左側雷達迷你地圖 (160x160) =====
+  // ===== 繪製全息雷達迷你地圖 (支援 52x52 與 26x26) =====
   renderMinimap(canvas, player, enemies) {
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     const w = canvas.width;
     const h = canvas.height;
-    const tileSize = w / MAP_SIZE;
+    const gridCols = (this.currentMap && this.currentMap.length) ? this.currentMap.length : MAP_SIZE;
+    const tileSize = w / gridCols;
 
-    ctx.fillStyle = '#05080d';
+    ctx.fillStyle = 'rgba(5, 8, 13, 0.95)';
     ctx.fillRect(0, 0, w, h);
 
-    for (let r = 0; r < MAP_SIZE; r++) {
-      for (let c = 0; c < MAP_SIZE; c++) {
-        const tile = this.currentMap[r] ? this.currentMap[r][c] : 0;
+    for (let r = 0; r < gridCols; r++) {
+      if (!this.currentMap[r]) continue;
+      for (let c = 0; c < gridCols; c++) {
+        const tile = this.currentMap[r][c];
         if (tile === TILE.BRICK) {
           ctx.fillStyle = '#d84315';
           ctx.fillRect(c * tileSize, r * tileSize, tileSize, tileSize);
@@ -71,6 +71,18 @@ export class LevelManager {
         } else if (tile === TILE.WATER) {
           ctx.fillStyle = '#0288d1';
           ctx.fillRect(c * tileSize, r * tileSize, tileSize, tileSize);
+        } else if (tile === TILE.SAND) {
+          ctx.fillStyle = '#d4a373';
+          ctx.fillRect(c * tileSize, r * tileSize, tileSize, tileSize);
+        } else if (tile === TILE.BOOST) {
+          ctx.fillStyle = '#00f5d4';
+          ctx.fillRect(c * tileSize, r * tileSize, tileSize, tileSize);
+        } else if (tile === TILE.LAVA) {
+          ctx.fillStyle = '#ff4800';
+          ctx.fillRect(c * tileSize, r * tileSize, tileSize, tileSize);
+        } else if (tile === TILE.PORTAL) {
+          ctx.fillStyle = '#f72585';
+          ctx.fillRect(c * tileSize, r * tileSize, tileSize, tileSize);
         } else if (tile === TILE.BASE) {
           ctx.fillStyle = '#ffca28';
           ctx.fillRect(c * tileSize, r * tileSize, tileSize, tileSize);
@@ -78,12 +90,15 @@ export class LevelManager {
       }
     }
 
+    const worldWidth = gridCols * 24;
+    const worldHeight = gridCols * 24;
+
     if (player && player.alive) {
-      const px = (player.x / (MAP_SIZE * 24)) * w;
-      const py = (player.y / (MAP_SIZE * 24)) * h;
+      const px = (player.x / worldWidth) * w;
+      const py = (player.y / worldHeight) * h;
       ctx.fillStyle = '#00e676';
       ctx.beginPath();
-      ctx.arc(px, py, 3, 0, Math.PI * 2);
+      ctx.arc(px, py, 3.5, 0, Math.PI * 2);
       ctx.fill();
     }
 
@@ -91,8 +106,8 @@ export class LevelManager {
       ctx.fillStyle = '#ff1744';
       enemies.forEach(e => {
         if (e.alive) {
-          const ex = (e.x / (MAP_SIZE * 24)) * w;
-          const ey = (e.y / (MAP_SIZE * 24)) * h;
+          const ex = (e.x / worldWidth) * w;
+          const ey = (e.y / worldHeight) * h;
           ctx.fillRect(ex - 2, ey - 2, 4, 4);
         }
       });

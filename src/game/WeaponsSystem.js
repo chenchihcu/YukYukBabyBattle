@@ -51,6 +51,39 @@ export class WeaponsManager {
     this.activeWeapons = new Set([1]); // 當前啟動技能
     this.currentPage = 1;
     this.pageSize = 16;
+
+    // 6 大核心實時切換武器
+    this.wheelWeapons = [
+      { id: 'normal', name: '標準重砲', icon: '💣', key: '1', speed: 6, maxBullets: 2, desc: '平衡型基礎主砲' },
+      { id: 'rapid', name: '雙發衝鋒', icon: '🔫', key: '2', speed: 8, maxBullets: 4, desc: '極速雙管連射' },
+      { id: 'ap', name: '穿甲巨砲', icon: '💥', key: '3', speed: 7, maxBullets: 2, desc: '可摧毀鋼鐵牆壁' },
+      { id: 'shotgun', name: '三向散彈', icon: '🔱', key: '4', speed: 6.5, maxBullets: 6, desc: '360扇形大範圍彈幕' },
+      { id: 'laser', name: '貫穿雷射', icon: '⚡', key: '5', speed: 12, maxBullets: 1, desc: '瞬間貫穿多層障礙' },
+      { id: 'homing', name: '追蹤飛彈', icon: '🎯', key: '6', speed: 5, maxBullets: 2, desc: '自動導引追獵敵坦克' }
+    ];
+    this.selectedWeaponIndex = 0; // 預設為標準重砲
+  }
+
+  getCurrentWeapon() {
+    return this.wheelWeapons[this.selectedWeaponIndex];
+  }
+
+  selectWeaponIndex(idx) {
+    if (idx >= 0 && idx < this.wheelWeapons.length) {
+      this.selectedWeaponIndex = idx;
+      return this.wheelWeapons[idx];
+    }
+    return this.getCurrentWeapon();
+  }
+
+  selectNextWeapon() {
+    this.selectedWeaponIndex = (this.selectedWeaponIndex + 1) % this.wheelWeapons.length;
+    return this.getCurrentWeapon();
+  }
+
+  selectPrevWeapon() {
+    this.selectedWeaponIndex = (this.selectedWeaponIndex - 1 + this.wheelWeapons.length) % this.wheelWeapons.length;
+    return this.getCurrentWeapon();
   }
 
   unlockWeapon(id) {

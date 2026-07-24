@@ -92,15 +92,27 @@ export class Tank {
     }
   }
 
-  render(ctx) {
+  render(ctx, renderMode = '2D') {
     if (!this.alive) return;
     const bodyAngle = (this.dir * 90 * Math.PI) / 180;
     const currentTurretAngle = this.turretAngle !== null ? this.turretAngle : (bodyAngle - Math.PI / 2);
+    const is64Bit = renderMode === '64BIT';
 
     ctx.save();
+
+    // 64-bit 次世代物體動態地面投影 (Dynamic Cast Shadows)
+    if (is64Bit) {
+      ctx.save();
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+      ctx.beginPath();
+      ctx.ellipse(this.x + 15, this.y + 18, 14, 12, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
     ctx.translate(this.x + 12, this.y + 12);
 
-    // 1. 繪製 16-bit 履帶底盤 (隨車身方向旋轉)
+    // 1. 繪製履帶底盤 (隨車身方向旋轉)
     ctx.save();
     ctx.rotate(bodyAngle);
 
@@ -108,9 +120,9 @@ export class Tank {
     ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
     ctx.fillRect(-11, -10, 24, 24);
 
-    // 左履帶與右履帶 (16-bit 金屬滾輪與細碎履帶齒)
-    const treadColorDark = '#10141d';
-    const treadColorLight = '#455a64';
+    // 履帶與細碎履帶齒
+    const treadColorDark = is64Bit ? '#0a0d14' : '#10141d';
+    const treadColorLight = is64Bit ? '#607d8b' : '#455a64';
     const treadShift = Math.floor(this.treadAnimFrame / 2);
 
     ctx.fillStyle = treadColorDark;
@@ -124,7 +136,7 @@ export class Tank {
       ctx.fillRect(7, i, 5, 2);
     }
 
-    // 2. 16-bit 車身金屬裝甲 (層次與切角高光)
+    // 2. 車身金屬裝甲 (層次與切角高光)
     let bodyColorMain, bodyColorLight, bodyColorDark;
 
     if (this.isPlayer) {
@@ -139,7 +151,7 @@ export class Tank {
         } else if (this.starLevel === 2) {
           bodyColorMain = '#29b6f6'; bodyColorLight = '#e0f7fa'; bodyColorDark = '#0277bd';
         } else {
-          bodyColorMain = '#00e5ff'; bodyColorLight = '#b2ebf2'; bodyColorDark = '#0097a7'; // P1 經典藍
+          bodyColorMain = '#00e5ff'; bodyColorLight = '#b2ebf2'; bodyColorDark = '#0097a7';
         }
       } else {
         // Player 1 經典翠綠/黃金配色
@@ -181,7 +193,14 @@ export class Tank {
     ctx.fillRect(-6, -8, 12, 2); // 頂部亮邊
     ctx.fillRect(-6, -8, 2, 16); // 左側亮邊
 
-    // 裝甲金屬鉚釘 (16-bit 裝飾點)
+    // 64-bit 金屬裝甲倒角斜面與高光 Specular
+    if (is64Bit) {
+      ctx.strokeStyle = bodyColorLight;
+      ctx.lineWidth = 1;
+      ctx.strokeRect(-6.5, -8.5, 13, 17);
+    }
+
+    // 裝甲金屬鉚釘
     ctx.fillStyle = bodyColorDark;
     ctx.fillRect(-5, -6, 2, 2);
     ctx.fillRect(3, -6, 2, 2);
@@ -190,7 +209,7 @@ export class Tank {
 
     ctx.restore(); // 結束底盤旋轉
 
-    // 3. 獨立 16-bit 砲塔 (跟隨瞄準角度)
+    // 3. 獨立砲塔 (跟隨瞄準角度)
     ctx.save();
     ctx.rotate(currentTurretAngle + Math.PI / 2); // 預設砲口朝上
 

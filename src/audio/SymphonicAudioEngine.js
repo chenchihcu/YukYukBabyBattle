@@ -158,6 +158,106 @@ export class SymphonicAudioEngine {
     }
   }
 
+  // 64-bit 次世代立體聲 Panning 與空間音效支援 (x: 畫面 X 座標, width: 畫布總寬)
+  playSpatialSfx(type, x = 156, width = 312) {
+    this.init();
+    if (this.sfxVolume <= 0 || !this.ctx) return;
+
+    const panValue = Math.max(-1, Math.min(1, ((x / width) - 0.5) * 2));
+    const t = this.ctx.currentTime;
+    const g = this.ctx.createGain();
+
+    let panner = null;
+    if (this.ctx.createStereoPanner) {
+      panner = this.ctx.createStereoPanner();
+      panner.pan.setValueAtTime(panValue, t);
+      g.connect(panner);
+      panner.connect(this.sfxGain);
+    } else {
+      g.connect(this.sfxGain);
+    }
+
+    // 處理特殊 64-bit FM 雙振盪器合成聲響
+    if (type.startsWith('shoot_') || type.startsWith('explosion_')) {
+      this.playFmSynthSfx(type, t, g);
+    } else {
+      this.playSfx(type);
+      return;
+    }
+
+    setTimeout(() => {
+      if (panner) panner.disconnect();
+      g.disconnect();
+    }, 600);
+  }
+
+  // 64-bit FM (Frequency Modulation) 雙振盪器音色合成器
+  playFmSynthSfx(type, t, targetGain) {
+    if (!this.ctx) return;
+    const carrier = this.ctx.createOscillator();
+    const modulator = this.ctx.createOscillator();
+    const modGain = this.ctx.createGain();
+
+    if (type.includes('explosion')) {
+      carrier.type = 'sawtooth';
+      modulator.type = 'square';
+      carrier.frequency.setValueAtTime(110, t);
+      carrier.frequency.exponentialRampToValueAtTime(30, t + 0.4);
+      modulator.frequency.setValueAtTime(45, t);
+      modGain.gain.setValueAtTime(180, t);
+      modGain.gain.exponentialRampToValueAtTime(10, t + 0.4);
+      targetGain.gain.setValueAtTime(0.6, t);
+      targetGain.gain.exponentialRampToValueAtTime(0.01, t + 0.4);
+    } else {
+      carrier.type = 'triangle';
+      modulator.type = 'sine';
+      carrier.frequency.setValueAtTime(520, t);
+      carrier.frequency.exponentialRampToValueAtTime(120, t + 0.15);
+      modulator.frequency.setValueAtTime(260, t);
+      modGain.gain.setValueAtTime(300, t);
+      modGain.gain.exponentialRampToValueAtTime(1, t + 0.15);
+      targetGain.gain.setValueAtTime(0.35, t);
+      targetGain.gain.exponentialRampToValueAtTime(0.01, t + 0.15);
+    }
+
+    modulator.connect(modGain);
+    modGain.connect(carrier.frequency);
+    carrier.connect(targetGain);
+
+    modulator.start(t);
+    carrier.start(t);
+    modulator.stop(t + 0.4);
+    carrier.stop(t + 0.4);
+
+    setTimeout(() => {
+      modulator.disconnect();
+      modGain.disconnect();
+      carrier.disconnect();
+    }, 450);
+  }
+
+  // 64-bit Console 開機水晶和弦音效 (Boot Chime)
+  play64BitBootChime() {
+    this.init();
+    if (this.sfxVolume <= 0 || !this.ctx) return;
+    const t = this.ctx.currentTime;
+    const frequencies = [261.63, 329.63, 392.00, 523.25, 659.25, 783.99]; // C E G C E G
+    frequencies.forEach((freq, idx) => {
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, t + idx * 0.05);
+      gain.gain.setValueAtTime(0, t);
+      gain.gain.setValueAtTime(0.2, t + idx * 0.05);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + idx * 0.05 + 0.8);
+      osc.connect(gain);
+      gain.connect(this.masterGain);
+      osc.start(t + idx * 0.05);
+      osc.stop(t + idx * 0.05 + 0.85);
+      setTimeout(() => { osc.disconnect(); gain.disconnect(); }, 1000);
+    });
+  }
+
   // ===== 動態交響背景音樂 =====
   startBgm() {
     this.init();
