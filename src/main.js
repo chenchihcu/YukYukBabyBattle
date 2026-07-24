@@ -643,7 +643,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const num = parseInt(e.code.replace('Digit', ''), 10) - 1;
       updateWeaponSelectionUI(num);
     } else if (e.code === 'Enter' || e.code === 'Space') {
-      if (!overlay.classList.contains('hidden') && gameEngine.state !== 'PLAYING') {
+      if (overlay && !overlay.classList.contains('hidden') && gameEngine.state !== 'PLAYING') {
         e.preventDefault();
         startGame();
       } else if (scoreTallyOverlay && !scoreTallyOverlay.classList.contains('hidden')) {
@@ -656,7 +656,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // 開始遊戲
   async function startGame() {
     audioEngine.playSfx("menu_start");
-    overlay.classList.add('hidden');
+    if (overlay) overlay.classList.add('hidden');
     await gameEngine.startStage(previewStageNum);
   }
 
@@ -696,7 +696,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function runScoreTallyAnimation(data, isVictory) {
-    scoreTallyOverlay.classList.remove('hidden');
+    if (scoreTallyOverlay) scoreTallyOverlay.classList.remove('hidden');
     const stageFormatted = String(data.stage || levelManager.currentStage).padStart(3, '0');
     if (tallyTitle) tallyTitle.innerText = isVictory ? `STAGE ${stageFormatted} CLEAR!` : `STAGE ${stageFormatted} FAILED`;
     if (tallyTotalScore) tallyTotalScore.innerText = String(data.score).padStart(7, '0');
