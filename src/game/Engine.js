@@ -166,6 +166,9 @@ export class GameEngine {
     this.subMap = MapDataGenerator.convertToSubMap(this.map);
 
     this.score = this.score || 0;
+    if (this.lives1 <= 0) this.lives1 = 1;
+    if (this.gameMode === '2P' && this.lives2 <= 0) this.lives2 = 1;
+
     this.enemiesRemaining = 20;
     this.totalEnemiesToSpawn = 20;
     this.enemiesOnField = [];

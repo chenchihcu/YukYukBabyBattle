@@ -11,9 +11,9 @@ import { MapDataGenerator, MAP_SIZE } from './game/MapData.js';
 import { StorageManager } from './game/StorageManager.js';
 
 document.addEventListener('DOMContentLoaded', () => {
-  // 註冊 Service Worker PWA
+  // 註冊 Service Worker PWA (相對路徑適配生產環境部署)
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/sw.js').catch(err => {
+    navigator.serviceWorker.register('./sw.js').catch(err => {
       console.log('SW register failed:', err);
     });
   }
@@ -365,6 +365,8 @@ document.addEventListener('DOMContentLoaded', () => {
       levelManager.nextStage();
       gameEngine.startStage(levelManager.currentStage);
     } else {
+      gameEngine.lives1 = 3;
+      gameEngine.lives2 = 3;
       gameEngine.startStage(levelManager.currentStage);
     }
   });
@@ -423,6 +425,10 @@ document.addEventListener('DOMContentLoaded', () => {
     overlay.classList.add('hidden');
     if (gameEngine.state === 'VICTORY') {
       levelManager.nextStage();
+    } else if (gameEngine.state === 'GAMEOVER' || gameEngine.state === 'START') {
+      gameEngine.score = 0;
+      gameEngine.lives1 = 3;
+      gameEngine.lives2 = 3;
     }
     gameEngine.startStage(levelManager.currentStage);
   }
