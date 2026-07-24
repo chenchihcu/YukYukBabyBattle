@@ -468,6 +468,13 @@ export class GameEngine {
   playerShoot(playerNum = 1) {
     const p = playerNum === 1 ? this.player1 : this.player2;
     if (!p || !p.alive || p.isParalyzed || p.cooldown > 0) return;
+
+    const currentWpn = this.weaponsManager.getCurrentWeapon();
+    const activeBullets = this.bullets.filter(
+      (b) => b.isPlayer && b.shooterPlayerNum === playerNum && b.alive
+    ).length;
+    if (activeBullets >= currentWpn.maxBullets) return;
+
     p.cooldown = p.maxCooldown;
 
     const bx = p.x + 32;
@@ -480,8 +487,6 @@ export class GameEngine {
       isMouseAim && p.turretAngle !== null
         ? p.turretAngle
         : ((p.dir * 90 - 90) * Math.PI) / 180;
-
-    const currentWpn = this.weaponsManager.getCurrentWeapon();
 
     if (currentWpn.id === 'rapid') {
       this.bullets.push(
