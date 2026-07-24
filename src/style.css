@@ -740,3 +740,197 @@ html, body {
   line-height: 18px;
   font-weight: 700;
 }
+
+/* ===== ⌨️ Key Binding 自訂快捷鍵配置 UI ===== */
+.keybind-hint {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  color: var(--color-text-dim);
+  margin-bottom: 10px;
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 6px;
+  border-left: 3px solid var(--color-cyan);
+}
+
+.keybind-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 260px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.keybind-list::-webkit-scrollbar {
+  width: 4px;
+}
+.keybind-list::-webkit-scrollbar-thumb {
+  background: rgba(0, 229, 255, 0.3);
+  border-radius: 2px;
+}
+
+.keybind-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  transition: background 0.15s;
+}
+.keybind-row:hover {
+  background: rgba(0, 229, 255, 0.06);
+}
+
+.keybind-action {
+  flex: 1;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  color: var(--color-text-bright);
+  font-weight: 600;
+  min-width: 80px;
+}
+
+.keybind-key-badge {
+  display: inline-block;
+  min-width: 52px;
+  text-align: center;
+  padding: 3px 8px;
+  background: rgba(0, 229, 255, 0.12);
+  border: 1px solid rgba(0, 229, 255, 0.35);
+  border-radius: 5px;
+  font-family: var(--font-tech);
+  font-size: 11px;
+  color: var(--color-cyan);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.keybind-btn {
+  padding: 4px 10px;
+  background: rgba(255, 202, 40, 0.12);
+  border: 1px solid rgba(255, 202, 40, 0.3);
+  border-radius: 5px;
+  color: var(--color-gold);
+  font-family: var(--font-tech);
+  font-size: 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.keybind-btn:hover {
+  background: rgba(255, 202, 40, 0.25);
+  border-color: var(--color-gold);
+  box-shadow: 0 0 8px rgba(255, 202, 40, 0.3);
+}
+
+/* 等待按鍵中：閃爍動畫狀態 */
+.keybind-btn.key-listening {
+  background: rgba(213, 0, 249, 0.2);
+  border-color: var(--color-purple);
+  color: var(--color-purple);
+  animation: keybind-pulse 0.5s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+@keyframes keybind-pulse {
+  from { box-shadow: 0 0 4px rgba(213, 0, 249, 0.4); opacity: 0.7; }
+  to   { box-shadow: 0 0 14px rgba(213, 0, 249, 0.9); opacity: 1.0; }
+}
+
+.keybind-footer {
+  margin-top: 10px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.keybind-reset-btn {
+  padding: 6px 14px;
+  background: rgba(255, 61, 0, 0.12);
+  border: 1px solid rgba(255, 61, 0, 0.3);
+  border-radius: 6px;
+  color: var(--color-red);
+  font-family: var(--font-tech);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.keybind-reset-btn:hover {
+  background: rgba(255, 61, 0, 0.25);
+  border-color: var(--color-red);
+  box-shadow: 0 0 8px rgba(255, 61, 0, 0.3);
+}
+
+/* ===== ⏸ 暫停 Overlay 樣式 ===== */
+#pause-overlay {
+  z-index: 90;
+}
+
+.pause-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 64px;
+  text-align: center;
+  min-width: 340px;
+  border: 1px solid rgba(0, 229, 255, 0.3);
+  box-shadow: 0 0 40px rgba(0, 229, 255, 0.15), 0 16px 64px rgba(0, 0, 0, 0.7);
+  animation: pause-card-in 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes pause-card-in {
+  from { transform: scale(0.85); opacity: 0; }
+  to   { transform: scale(1);    opacity: 1; }
+}
+
+.pause-icon {
+  font-size: 52px;
+  margin-bottom: 16px;
+  animation: pause-bounce 1.5s ease-in-out infinite;
+}
+@keyframes pause-bounce {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-6px); }
+}
+
+.pause-title {
+  font-family: var(--font-tech);
+  font-size: 28px;
+  font-weight: 900;
+  color: var(--color-cyan);
+  text-shadow: 0 0 20px rgba(0, 229, 255, 0.6);
+  margin-bottom: 6px;
+}
+
+.pause-subtitle {
+  font-family: var(--font-retro);
+  font-size: 10px;
+  color: var(--color-text-dim);
+  letter-spacing: 0.2em;
+  margin-bottom: 20px;
+}
+
+.pause-hint {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  color: var(--color-text-bright);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pause-key-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  background: rgba(0, 229, 255, 0.15);
+  border: 1px solid var(--color-cyan);
+  border-radius: 6px;
+  font-family: var(--font-tech);
+  font-size: 13px;
+  color: var(--color-cyan);
+  font-weight: 700;
+  box-shadow: 0 0 8px rgba(0, 229, 255, 0.3);
+}

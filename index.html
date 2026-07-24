@@ -78,8 +78,8 @@
 
     <!-- ===== 右上角 控制/選單按鈕 ===== -->
     <div class="top-actions-bar">
-      <button id="btn-toggle-weapon-wheel" class="action-btn glass-panel" title="武器輪盤 (Tab)">
-        <span class="btn-icon">🌀</span> 武器輪盤 <span class="hotkey-tag">TAB</span>
+      <button id="btn-toggle-weapon-wheel" class="action-btn glass-panel" title="武器輪盤 (Q)">
+        <span class="btn-icon">🌀</span> 武器輪盤 <span class="hotkey-tag">Q</span>
       </button>
       <button id="btn-toggle-settings" class="action-btn glass-panel" title="戰術設定 (ESC)">
         <span class="btn-icon">⚙️</span> 戰術設定 <span class="hotkey-tag">ESC</span>
@@ -103,7 +103,7 @@
     <div id="weapon-wheel-overlay" class="weapon-wheel-overlay hidden">
       <div class="wheel-container glass-panel">
         <div class="wheel-title">🌀 戰術武器選擇盤 (RADIAL WEAPON WHEEL)</div>
-        <div class="wheel-sub">點擊選項切換武器 / 按 Tab 關閉</div>
+        <div class="wheel-sub">點擊選項切換武器 / 按 Q 或 Tab 關閉</div>
         <div class="radial-wheel" id="radial-wheel-items">
           <div class="wheel-item" data-index="0" style="--angle: 0deg;"><span class="w-icon">💣</span><span class="w-name">標準砲</span></div>
           <div class="wheel-item" data-index="1" style="--angle: 60deg;"><span class="w-icon">🔫</span><span class="w-name">雙發衝鋒</span></div>
@@ -189,6 +189,18 @@
               <button id="btn-toggle-sound" class="setting-tab-btn active">🔊 音效開啟</button>
             </div>
           </div>
+
+          <!-- 快捷鍵配置 (Key Bindings) -->
+          <div class="setting-section">
+            <h3 class="section-title">⌨️ 快捷鍵配置 (Key Bindings)</h3>
+            <div class="keybind-hint">點擊「重新綁定」後按下新按鍵 | ESC 取消</div>
+            <div id="keybind-list" class="keybind-list">
+              <!-- 由 main.js renderKeyBindingUI() 動態生成 -->
+            </div>
+            <div class="keybind-footer">
+              <button id="btn-reset-bindings" class="keybind-reset-btn">↩ 恢復預設快捷鍵</button>
+            </div>
+          </div>
         </div>
       </aside>
     </div>
@@ -232,6 +244,17 @@
           </div>
           <button id="btn-tally-continue" class="arcade-btn primary-btn pulse-glow">⚔️ 進入下一關 (SPACE)</button>
         </div>
+      </div>
+    </div>
+
+    <!-- ===== 遊戲暫停 Overlay ===== -->
+    <div id="pause-overlay" class="overlay hidden">
+      <div class="pause-card glass-panel">
+        <div class="pause-icon">⏸</div>
+        <h2 class="pause-title">遊戲暫停</h2>
+        <div class="pause-subtitle">GAME PAUSED</div>
+        <div class="pause-hint">按 <span class="pause-key-badge">P</span> 繼續遊戲</div>
+        <button id="btn-pause-resume" class="arcade-btn primary-btn pulse-glow" style="margin-top:24px;">▶ 繼續作戰</button>
       </div>
     </div>
   </div>

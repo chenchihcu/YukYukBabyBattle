@@ -96,6 +96,177 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   );
 
+  // isSoundOn 必須在 onToggleMute 回調前宣告，供閉包捕捉
+  let isSoundOn = true;
+
+  // ===== 外部回調鉤子注入 Engine（暫停、靜音、武器輪盤）=====
+  gameEngine.onToggleWeaponWheel = () => toggleWeaponWheel();
+  gameEngine.onTogglePause = (isPaused) => {
+    const pauseOverlay = document.getElementById('pause-overlay');
+    if (pauseOverlay) {
+      if (isPaused) pauseOverlay.classList.remove('hidden');
+      else pauseOverlay.classList.add('hidden');
+    }
+    audioEngine.playSfx('menu_click');
+  };
+  gameEngine.onToggleMute = () => {
+    isSoundOn = !isSoundOn;
+    if (isSoundOn) {
+      if (btnToggleSound) { btnToggleSound.classList.add('active'); btnToggleSound.innerText = '🔊 音效開啟'; }
+      audioEngine.setSfxVolume(1.0);
+      audioEngine.setBgmVolume(0.8);
+    } else {
+      if (btnToggleSound) { btnToggleSound.classList.remove('active'); btnToggleSound.innerText = '🔇 音效靜音'; }
+      audioEngine.setSfxVolume(0);
+      audioEngine.setBgmVolume(0);
+    }
+    audioEngine.playSfx('menu_click');
+  };
+
+  // ===== KeyBinding Manager =====
+  const DEFAULT_BINDINGS = {
+    shoot:         { label: '射擊',         code: 'Space',      displayKey: 'SPACE' },
+    shootAlt:      { label: '射擊 (備用)',    code: 'KeyZ',       displayKey: 'Z' },
+    specialWeapon: { label: '特殊武器',       code: 'KeyE',       displayKey: 'E' },
+    specialTech:   { label: '特殊技',         code: 'KeyF',       displayKey: 'F' },
+    weaponWheel:   { label: '武器輪盤',       code: 'KeyQ',       displayKey: 'Q' },
+    dash:          { label: '疾衝 Dash',     code: 'ShiftLeft',  displayKey: 'SHIFT' },
+    pause:         { label: '暫停遊戲',       code: 'KeyP',       displayKey: 'P' },
+    mute:          { label: '靜音切換',       code: 'KeyM',       displayKey: 'M' },
+    moveUp:        { label: '向上移動',       code: 'KeyW',       displayKey: 'W' },
+    moveDown:      { label: '向下移動',       code: 'KeyS',       displayKey: 'S' },
+    moveLeft:      { label: '向左移動',       code: 'KeyA',       displayKey: 'A' },
+    moveRight:     { label: '向右移動',       code: 'KeyD',       displayKey: 'D' },
+  };
+
+  const STORAGE_KEY = 'tankgame_keybindings';
+  let currentBindings = JSON.parse(JSON.stringify(DEFAULT_BINDINGS));
+
+  function loadBindingsFromStorage() {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        Object.keys(DEFAULT_BINDINGS).forEach(key => {
+          if (parsed[key]) {
+            currentBindings[key] = { ...DEFAULT_BINDINGS[key], ...parsed[key] };
+          }
+        });
+      }
+    } catch (e) { /* 忽略儲存錯誤 */ }
+    applyBindingsToEngine();
+  }
+
+  function saveBindingsToStorage() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(currentBindings));
+    } catch (e) { /* 忽略儲存錯誤 */ }
+    applyBindingsToEngine();
+  }
+
+  function applyBindingsToEngine() {
+    // 將自訂綁定同步到 gameEngine.keyBindings
+    Object.keys(currentBindings).forEach(key => {
+      if (gameEngine.keyBindings.hasOwnProperty(key)) {
+        gameEngine.keyBindings[key] = currentBindings[key].code;
+      }
+    });
+  }
+
+  function resetBindingsToDefault() {
+    currentBindings = JSON.parse(JSON.stringify(DEFAULT_BINDINGS));
+    saveBindingsToStorage();
+    renderKeyBindingUI();
+    audioEngine.playSfx('menu_click');
+  }
+
+  // 隨機處理等待按鍵狀態
+  let listeningForKey = null; // 目前要重新綁定的 action key
+  function startListeningForKey(actionKey, btnEl) {
+    listeningForKey = actionKey;
+    btnEl.classList.add('key-listening');
+    btnEl.textContent = '…請按下新按鍵…';
+
+    const handler = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      // 忽略 Escape 中斷
+      if (e.code === 'Escape') {
+        btnEl.classList.remove('key-listening');
+        btnEl.textContent = '重新綁定';
+        listeningForKey = null;
+        window.removeEventListener('keydown', handler, true);
+        return;
+      }
+      // 更新綁定
+      const displayMap = {
+        'Space': 'SPACE', 'ShiftLeft': 'L-SHIFT', 'ShiftRight': 'R-SHIFT',
+        'ControlLeft': 'L-CTRL', 'ControlRight': 'R-CTRL',
+        'AltLeft': 'L-ALT', 'AltRight': 'R-ALT',
+        'Enter': 'ENTER', 'Backspace': 'BKSP', 'Tab': 'TAB',
+        'ArrowUp': '↑', 'ArrowDown': '↓', 'ArrowLeft': '←', 'ArrowRight': '→',
+      };
+      let displayKey = displayMap[e.code] || e.key.toUpperCase();
+      if (e.code.startsWith('Digit')) displayKey = e.code.replace('Digit', '');
+      if (e.code.startsWith('Key')) displayKey = e.code.replace('Key', '');
+
+      currentBindings[actionKey] = {
+        ...currentBindings[actionKey],
+        code: e.code,
+        displayKey
+      };
+
+      btnEl.classList.remove('key-listening');
+      btnEl.textContent = '重新綁定';
+      listeningForKey = null;
+      window.removeEventListener('keydown', handler, true);
+
+      saveBindingsToStorage();
+      renderKeyBindingUI();
+    };
+    // 使用 capture phase 优先擇取按鍵，避免造成其他操作
+    window.addEventListener('keydown', handler, true);
+  }
+
+  function renderKeyBindingUI() {
+    const container = document.getElementById('keybind-list');
+    if (!container) return;
+    container.innerHTML = '';
+    Object.keys(DEFAULT_BINDINGS).forEach(key => {
+      const binding = currentBindings[key];
+      const row = document.createElement('div');
+      row.className = 'keybind-row';
+
+      const actionSpan = document.createElement('span');
+      actionSpan.className = 'keybind-action';
+      actionSpan.textContent = binding.label;
+
+      const keyBadge = document.createElement('span');
+      keyBadge.className = 'keybind-key-badge';
+      keyBadge.id = `keybind-badge-${key}`;
+      keyBadge.textContent = binding.displayKey;
+
+      const rebindBtn = document.createElement('button');
+      rebindBtn.className = 'keybind-btn';
+      rebindBtn.textContent = '重新綁定';
+      rebindBtn.addEventListener('click', () => startListeningForKey(key, rebindBtn));
+
+      row.appendChild(actionSpan);
+      row.appendChild(keyBadge);
+      row.appendChild(rebindBtn);
+      container.appendChild(row);
+    });
+  }
+
+  // 預設綁定載入與 UI 渲染
+  loadBindingsFromStorage();
+  // DOM 完全建立後再渲染 UI
+  requestAnimationFrame(() => renderKeyBindingUI());
+
+  // 恢復預設按鈕
+  const btnResetBindings = document.getElementById('btn-reset-bindings');
+  if (btnResetBindings) btnResetBindings.addEventListener('click', resetBindingsToDefault);
+
   function renderLives(lives1 = 3, lives2 = 3) {
     if (uiLivesContainer) {
       uiLivesContainer.innerHTML = '';
@@ -245,8 +416,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // 聲音開關
-  let isSoundOn = true;
+  // 聲音開關（isSoundOn 已在上方宣告）
   if (btnToggleSound) btnToggleSound.addEventListener('click', () => {
     isSoundOn = !isSoundOn;
     audioEngine.playSfx("menu_click");
@@ -262,6 +432,14 @@ document.addEventListener('DOMContentLoaded', () => {
       audioEngine.setBgmVolume(0);
     }
   });
+
+  // 暫停 Overlay 按鈕
+  const btnPauseResume = document.getElementById('btn-pause-resume');
+  if (btnPauseResume) {
+    btnPauseResume.addEventListener('click', () => {
+      gameEngine.togglePause();
+    });
+  }
 
   // 關卡預覽
   let previewStageNum = 1;
@@ -282,12 +460,11 @@ document.addEventListener('DOMContentLoaded', () => {
     updatePreview();
   });
 
-  // 全局 鍵盤熱鍵 (Tab: 武器輪盤, ESC: 戰術抽屜, 1-6: 武器)
+  // 全局 鍵盤熱鍵 (Q: 武器輪盤, ESC: 戰術抽屜, 1-6: 武器, P: 暫停, M: 靜音)
+  // 注意：Q/Tab/P/M 已進中 Engine.bindEvents() 處理（透過回調）
+  // 這裡僅處理 ESC 抽屜 + 數字鍵武器切換 + Enter/Space 開始遊戲
   window.addEventListener('keydown', e => {
-    if (e.code === 'Tab') {
-      e.preventDefault();
-      toggleWeaponWheel();
-    } else if (e.code === 'Escape') {
+    if (e.code === 'Escape') {
       e.preventDefault();
       toggleSettingsDrawer();
     } else if (['Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5', 'Digit6'].includes(e.code)) {

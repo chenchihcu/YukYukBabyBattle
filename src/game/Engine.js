@@ -59,6 +59,44 @@ export class GameEngine {
     this.mouseY = window.innerHeight / 2;
     this.isMouseDown = false;
 
+    // 暫停狀態
+    this.isPaused = false;
+
+    // ===== 可自訂快捷鍵綁定系統 =====
+    // 預設綁定，可由外部 (main.js KeyBinding Manager) 覆蓋
+    this.keyBindings = {
+      shoot: 'Space',
+      shootAlt: 'KeyZ',
+      specialWeapon: 'KeyE',
+      specialTech: 'KeyF',
+      weaponWheel: 'KeyQ',
+      dash: 'ShiftLeft',
+      dashAlt: 'ShiftRight',
+      pause: 'KeyP',
+      mute: 'KeyM',
+      moveUp: 'KeyW',
+      moveDown: 'KeyS',
+      moveLeft: 'KeyA',
+      moveRight: 'KeyD',
+      arrowUp: 'ArrowUp',
+      arrowDown: 'ArrowDown',
+      arrowLeft: 'ArrowLeft',
+      arrowRight: 'ArrowRight',
+      p2shoot: 'KeyM_P2',      // P2 使用不同按鍵
+      p2dash: 'KeyN',
+      weapon1: 'Digit1',
+      weapon2: 'Digit2',
+      weapon3: 'Digit3',
+      weapon4: 'Digit4',
+      weapon5: 'Digit5',
+      weapon6: 'Digit6',
+    };
+
+    // 外部回調鉤子（供 main.js 注入）
+    this.onToggleWeaponWheel = null;
+    this.onTogglePause = null;
+    this.onToggleMute = null;
+
     this.bindEvents();
 
     // Resize 監聽
@@ -108,25 +146,52 @@ export class GameEngine {
 
   bindEvents() {
     window.addEventListener('keydown', e => {
-      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) {
+      const kb = this.keyBindings;
+      // 阻止方向鍵/空白鍵捲動頁面
+      if ([kb.arrowUp, kb.arrowDown, kb.arrowLeft, kb.arrowRight, 'Space'].includes(e.code)) {
         e.preventDefault();
       }
       this.keys[e.code] = true;
 
-      if (this.state === 'PLAYING') {
-        if (e.code === 'KeyZ' || e.code === 'Space') this.playerShoot(1);
-        if (e.code === 'KeyX') this.useSpecialWeapon(1);
-        if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') this.playerDash(1);
+      // ===== 暫停（PLAYING 或 PAUSED 皆可切換）=====
+      if (e.code === kb.pause) {
+        this.togglePause();
+        return;
+      }
+
+      // ===== 靜音切換（任何狀態可用）=====
+      if (e.code === kb.mute) {
+        if (this.onToggleMute) this.onToggleMute();
+        return;
+      }
+
+      // ===== 武器輪盤（Q 或 Tab，任何非 PLAYING 狀態也可呼出）=====
+      if (e.code === kb.weaponWheel || e.code === 'Tab') {
+        e.preventDefault();
+        if (this.onToggleWeaponWheel) this.onToggleWeaponWheel();
+        return;
+      }
+
+      if (this.state === 'PLAYING' && !this.isPaused) {
+        // 射擊
+        if (e.code === kb.shoot || e.code === kb.shootAlt) this.playerShoot(1);
+        // 特殊武器 E
+        if (e.code === kb.specialWeapon) this.useSpecialWeapon(1);
+        // 特殊技 F（目前映射到 useSpecialWeapon，未來可分開）
+        if (e.code === kb.specialTech) this.useSpecialTech(1);
+        // 疾衝 Shift
+        if (e.code === kb.dash || e.code === kb.dashAlt) this.playerDash(1);
 
         if (this.gameMode === '2P') {
-          if (e.code === 'KeyM' || e.code === 'Numpad0' || e.code === 'Enter') this.playerShoot(2);
-          if (e.code === 'KeyN' || e.code === 'NumpadDecimal') this.playerDash(2);
+          if (e.code === 'Numpad0' || e.code === 'Enter') this.playerShoot(2);
+          if (e.code === kb.p2dash || e.code === 'NumpadDecimal') this.playerDash(2);
         }
       }
     });
 
     window.addEventListener('keyup', e => {
-      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) {
+      const kb = this.keyBindings;
+      if ([kb.arrowUp, kb.arrowDown, kb.arrowLeft, kb.arrowRight, 'Space'].includes(e.code)) {
         e.preventDefault();
       }
       this.keys[e.code] = false;
@@ -139,8 +204,10 @@ export class GameEngine {
       this.mouseX = e.clientX - rect.left;
       this.mouseY = e.clientY - rect.top;
 
-      // 轉換為世界座標算角度
-      if (this.player1 && this.player1.alive && (this.controlMode === 'mouse_keyboard' || this.controlMode === 'mouse_only')) {
+      // 轉換為世界座標算角度（僅在 PLAYING 且非暫停時更新）
+      if (this.player1 && this.player1.alive &&
+          (this.controlMode === 'mouse_keyboard' || this.controlMode === 'mouse_only') &&
+          this.state === 'PLAYING') {
         const worldMouseX = this.mouseX + this.camera.x;
         const worldMouseY = this.mouseY + this.camera.y;
         const dx = worldMouseX - (this.player1.x + 12);
@@ -150,7 +217,8 @@ export class GameEngine {
     });
 
     this.canvas.addEventListener('mousedown', e => {
-      if (this.state !== 'PLAYING') return;
+      // 僅在 PLAYING 且非暫停狀態才處理
+      if (this.state !== 'PLAYING' || this.isPaused) return;
       if (e.button === 0) {
         this.isMouseDown = true;
         if (this.controlMode === 'mouse_keyboard' || this.controlMode === 'mouse_only') {
@@ -165,6 +233,28 @@ export class GameEngine {
     window.addEventListener('mouseup', e => {
       if (e.button === 0) this.isMouseDown = false;
     });
+  }
+
+  // ===== 暫停/繼續遊戲 =====
+  togglePause() {
+    if (this.state !== 'PLAYING' && !this.isPaused) return;
+    this.isPaused = !this.isPaused;
+    if (this.isPaused) {
+      this.audioEngine.stopBgm();
+    } else {
+      this.audioEngine.startBgm();
+    }
+    if (this.onTogglePause) this.onTogglePause(this.isPaused);
+  }
+
+  // ===== 特殊技（F 鍵，與特殊武器 E 分開，未來可擴充）=====
+  useSpecialTech(playerNum = 1) {
+    // 目前實作：觸發衝擊波 + 粒子效果，未來可連接新技能
+    const p = playerNum === 1 ? this.player1 : this.player2;
+    if (p && p.alive) {
+      this.particles.createShockwave(p.x + 12, p.y + 12, '#f72585');
+      this.audioEngine.playSfx('shield_active');
+    }
   }
 
   playerDash(playerNum = 1) {
@@ -290,7 +380,7 @@ export class GameEngine {
   }
 
   update() {
-    if (this.state !== 'PLAYING') return;
+    if (this.state !== 'PLAYING' || this.isPaused) return;
 
     const gridCols = this.map ? this.map.length : 52;
     const worldWidth = gridCols * this.tileSize;
@@ -335,16 +425,17 @@ export class GameEngine {
       let dy = 0;
 
       if (idx === 0) { // P1 Key input
+        const kb = this.keyBindings;
         if (this.controlMode === 'mouse_keyboard' || this.controlMode === 'mouse_only') {
-          if (this.keys['KeyW']) { dy -= moveSpeed; p.dir = DIR.UP; }
-          if (this.keys['KeyS']) { dy += moveSpeed; p.dir = DIR.DOWN; }
-          if (this.keys['KeyA']) { dx -= moveSpeed; p.dir = DIR.LEFT; }
-          if (this.keys['KeyD']) { dx += moveSpeed; p.dir = DIR.RIGHT; }
+          if (this.keys[kb.moveUp])    { dy -= moveSpeed; p.dir = DIR.UP; }
+          if (this.keys[kb.moveDown])  { dy += moveSpeed; p.dir = DIR.DOWN; }
+          if (this.keys[kb.moveLeft])  { dx -= moveSpeed; p.dir = DIR.LEFT; }
+          if (this.keys[kb.moveRight]) { dx += moveSpeed; p.dir = DIR.RIGHT; }
         } else {
-          if (this.keys['ArrowUp'] || this.keys['KeyW']) { dy -= moveSpeed; p.dir = DIR.UP; p.turretAngle = null; }
-          else if (this.keys['ArrowDown'] || this.keys['KeyS']) { dy += moveSpeed; p.dir = DIR.DOWN; p.turretAngle = null; }
-          else if (this.keys['ArrowLeft'] || this.keys['KeyA']) { dx -= moveSpeed; p.dir = DIR.LEFT; p.turretAngle = null; }
-          else if (this.keys['ArrowRight'] || this.keys['KeyD']) { dx += moveSpeed; p.dir = DIR.RIGHT; p.turretAngle = null; }
+          if (this.keys[kb.arrowUp]   || this.keys[kb.moveUp])    { dy -= moveSpeed; p.dir = DIR.UP;    p.turretAngle = null; }
+          else if (this.keys[kb.arrowDown]  || this.keys[kb.moveDown])  { dy += moveSpeed; p.dir = DIR.DOWN;  p.turretAngle = null; }
+          else if (this.keys[kb.arrowLeft]  || this.keys[kb.moveLeft])  { dx -= moveSpeed; p.dir = DIR.LEFT;  p.turretAngle = null; }
+          else if (this.keys[kb.arrowRight] || this.keys[kb.moveRight]) { dx += moveSpeed; p.dir = DIR.RIGHT; p.turretAngle = null; }
         }
       } else if (idx === 1) { // P2 Key input
         if (this.keys['ArrowUp']) { dy -= moveSpeed; p.dir = DIR.UP; }
@@ -363,8 +454,9 @@ export class GameEngine {
       }
     });
 
-    // 連發按鍵
-    if (this.isMouseDown && (this.controlMode === 'mouse_keyboard' || this.controlMode === 'mouse_only')) {
+    // 連發按鍵（僅在 PLAYING 且非暫停時處理）
+    if (this.isMouseDown && !this.isPaused &&
+        (this.controlMode === 'mouse_keyboard' || this.controlMode === 'mouse_only')) {
       this.playerShoot(1);
     }
 
