@@ -11,7 +11,7 @@ export class StorageManager {
       const data = localStorage.getItem(STORAGE_KEY);
       if (data) return JSON.parse(data);
     } catch (e) {
-      console.warn("StorageManager: 無法讀取 LocalStorage", e);
+      console.warn('StorageManager: 無法讀取 LocalStorage', e);
     }
     return {
       highScore: 0,
@@ -24,7 +24,7 @@ export class StorageManager {
       crtEnabled: true,
       arcadeModeEnabled: true,
       cameraMode: '2.5D',
-      weatherMode: 'none'
+      weatherMode: 'none',
     };
   }
 
@@ -34,7 +34,7 @@ export class StorageManager {
       const updated = { ...current, ...data };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
     } catch (e) {
-      console.warn("StorageManager: 無法寫入 LocalStorage", e);
+      console.warn('StorageManager: 無法寫入 LocalStorage', e);
     }
   }
 
@@ -59,7 +59,7 @@ export class StorageManager {
     try {
       localStorage.setItem(CUSTOM_MAP_KEY, JSON.stringify(grid));
     } catch (e) {
-      console.warn("StorageManager: 無法儲存自訂地圖", e);
+      console.warn('StorageManager: 無法儲存自訂地圖', e);
     }
   }
 
@@ -68,7 +68,7 @@ export class StorageManager {
       const data = localStorage.getItem(CUSTOM_MAP_KEY);
       if (data) return JSON.parse(data);
     } catch (e) {
-      console.warn("StorageManager: 無法讀取自訂地圖", e);
+      console.warn('StorageManager: 無法讀取自訂地圖', e);
     }
     return null;
   }

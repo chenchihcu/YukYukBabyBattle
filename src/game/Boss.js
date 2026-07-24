@@ -9,7 +9,7 @@ export class BossTank {
   constructor(x, y, stageNum = 5) {
     this.x = x;
     this.y = y;
-    this.width = 96;  // 96x96px (佔地 4x4 大格 / 8x8 微觀格)
+    this.width = 96; // 96x96px (佔地 4x4 大格 / 8x8 微觀格)
     this.height = 96;
     this.dir = DIR.DOWN;
     this.speed = 0.9 + (stageNum / 200) * 0.4;
@@ -68,13 +68,19 @@ export class BossTank {
     // 尋找最近的玩家目標
     let target = null;
     if (player1 && player1.alive) target = player1;
-    if (player2 && player2.alive && (!target || Math.hypot(player2.x - this.x, player2.y - this.y) < Math.hypot(player1.x - this.x, player1.y - this.y))) {
+    if (
+      player2 &&
+      player2.alive &&
+      (!target ||
+        Math.hypot(player2.x - this.x, player2.y - this.y) <
+          Math.hypot(player1.x - this.x, player1.y - this.y))
+    ) {
       target = player2;
     }
 
     if (target) {
-      const dx = (target.x + 12) - (this.x + 48);
-      const dy = (target.y + 12) - (this.y + 48);
+      const dx = target.x + 12 - (this.x + 48);
+      const dy = target.y + 12 - (this.y + 48);
       const angle = Math.atan2(dy, dx);
       this.turretAngle1 = angle;
       this.turretAngle2 = angle + (this.phase === 2 ? 0.4 : 0);
@@ -88,13 +94,33 @@ export class BossTank {
 
       if (this.phase === 1) {
         // Phase 1: 三向彈幕
-        [-0.2, 0, 0.2].forEach(offset => {
-          bulletsArray.push(new Bullet(bx, by, DIR.DOWN, false, 'fast', this.turretAngle1 + offset, 0));
+        [-0.2, 0, 0.2].forEach((offset) => {
+          bulletsArray.push(
+            new Bullet(
+              bx,
+              by,
+              DIR.DOWN,
+              false,
+              'fast',
+              this.turretAngle1 + offset,
+              0
+            )
+          );
         });
       } else {
         // Phase 2: 環形 6 向狂暴星形彈幕
         for (let a = 0; a < Math.PI * 2; a += Math.PI / 3) {
-          bulletsArray.push(new Bullet(bx, by, DIR.DOWN, false, 'laser', a + (this.flashTimer * 0.1), 0));
+          bulletsArray.push(
+            new Bullet(
+              bx,
+              by,
+              DIR.DOWN,
+              false,
+              'laser',
+              a + this.flashTimer * 0.1,
+              0
+            )
+          );
         }
       }
     }
@@ -152,7 +178,10 @@ export class BossTank {
     }
 
     // 3. 雙獨立旋轉砲塔
-    [ { x: -16, y: -10, a: this.turretAngle1 }, { x: 16, y: -10, a: this.turretAngle2 } ].forEach((t, idx) => {
+    [
+      { x: -16, y: -10, a: this.turretAngle1 },
+      { x: 16, y: -10, a: this.turretAngle2 },
+    ].forEach((t, idx) => {
       ctx.save();
       ctx.translate(t.x, t.y);
       ctx.rotate(t.a + Math.PI / 2);
@@ -182,7 +211,14 @@ export class BossTank {
 
     // 4. 核心發光反應爐 (Reactor Core)
     const isPulsing = Math.floor(this.flashTimer / 6) % 2 === 0;
-    ctx.fillStyle = this.phase === 2 ? (isPulsing ? '#ff1744' : '#d500f9') : (isPulsing ? '#00e5ff' : '#0091ea');
+    ctx.fillStyle =
+      this.phase === 2
+        ? isPulsing
+          ? '#ff1744'
+          : '#d500f9'
+        : isPulsing
+          ? '#00e5ff'
+          : '#0091ea';
     ctx.beginPath();
     ctx.arc(0, 16, 12, 0, Math.PI * 2);
     ctx.fill();

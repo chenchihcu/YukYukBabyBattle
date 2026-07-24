@@ -16,16 +16,56 @@ export class SymphonicAudioEngine {
 
     // 50 種音效清單
     this.sfxList = [
-      "shoot_normal", "shoot_spread", "shoot_laser", "shoot_flame", "shoot_missile",
-      "shoot_freeze", "shoot_plasma", "shoot_emp", "shoot_drill", "shoot_acid",
-      "shoot_lightning", "shoot_twin", "shoot_hyper", "shoot_cluster", "shoot_vortex",
-      "explosion_small", "explosion_big", "explosion_base", "hit_brick", "hit_steel",
-      "shield_active", "shield_block", "mine_place", "mine_explode", "time_freeze",
-      "air_strike", "item_drop", "item_pickup", "level_up", "life_up",
-      "base_defend", "stealth_on", "stealth_off", "repair_heal", "berserk_mode",
-      "ricochet_bounce", "drone_hover", "vortex_pull", "acid_burn", "chain_spark",
-      "decoy_spawn", "bullet_storm", "turret_deploy", "doomsday_beam", "menu_click",
-      "stage_start_fanfare", "stage_clear_jingle", "game_over_theme", "warning_siren", "base_shield_up"
+      'shoot_normal',
+      'shoot_spread',
+      'shoot_laser',
+      'shoot_flame',
+      'shoot_missile',
+      'shoot_freeze',
+      'shoot_plasma',
+      'shoot_emp',
+      'shoot_drill',
+      'shoot_acid',
+      'shoot_lightning',
+      'shoot_twin',
+      'shoot_hyper',
+      'shoot_cluster',
+      'shoot_vortex',
+      'explosion_small',
+      'explosion_big',
+      'explosion_base',
+      'hit_brick',
+      'hit_steel',
+      'shield_active',
+      'shield_block',
+      'mine_place',
+      'mine_explode',
+      'time_freeze',
+      'air_strike',
+      'item_drop',
+      'item_pickup',
+      'level_up',
+      'life_up',
+      'base_defend',
+      'stealth_on',
+      'stealth_off',
+      'repair_heal',
+      'berserk_mode',
+      'ricochet_bounce',
+      'drone_hover',
+      'vortex_pull',
+      'acid_burn',
+      'chain_spark',
+      'decoy_spawn',
+      'bullet_storm',
+      'turret_deploy',
+      'doomsday_beam',
+      'menu_click',
+      'stage_start_fanfare',
+      'stage_clear_jingle',
+      'game_over_theme',
+      'warning_siren',
+      'base_shield_up',
     ];
   }
 
@@ -78,9 +118,9 @@ export class SymphonicAudioEngine {
     g.connect(this.sfxGain);
 
     switch (type) {
-      case "shoot_normal": {
+      case 'shoot_normal': {
         const osc = this.ctx.createOscillator();
-        osc.type = "square";
+        osc.type = 'square';
         osc.frequency.setValueAtTime(320, t);
         osc.frequency.exponentialRampToValueAtTime(80, t + 0.1);
         g.gain.setValueAtTime(0.3, t);
@@ -88,13 +128,16 @@ export class SymphonicAudioEngine {
         osc.connect(g);
         osc.start(t);
         osc.stop(t + 0.1);
-        setTimeout(() => { osc.disconnect(); g.disconnect(); }, 120);
+        setTimeout(() => {
+          osc.disconnect();
+          g.disconnect();
+        }, 120);
         break;
       }
-      case "shoot_spread": {
+      case 'shoot_spread': {
         for (let i = 0; i < 3; i++) {
           const osc = this.ctx.createOscillator();
-          osc.type = "sawtooth";
+          osc.type = 'sawtooth';
           osc.frequency.setValueAtTime(400 + i * 80, t);
           osc.frequency.exponentialRampToValueAtTime(100, t + 0.12);
           g.gain.setValueAtTime(0.2, t);
@@ -102,14 +145,18 @@ export class SymphonicAudioEngine {
           osc.connect(g);
           osc.start(t);
           osc.stop(t + 0.12);
-          setTimeout(() => { osc.disconnect(); }, 150);
+          setTimeout(() => {
+            osc.disconnect();
+          }, 150);
         }
-        setTimeout(() => { g.disconnect(); }, 150);
+        setTimeout(() => {
+          g.disconnect();
+        }, 150);
         break;
       }
-      case "shoot_laser": {
+      case 'shoot_laser': {
         const osc = this.ctx.createOscillator();
-        osc.type = "sine";
+        osc.type = 'sine';
         osc.frequency.setValueAtTime(1200, t);
         osc.frequency.exponentialRampToValueAtTime(200, t + 0.25);
         g.gain.setValueAtTime(0.4, t);
@@ -117,41 +164,64 @@ export class SymphonicAudioEngine {
         osc.connect(g);
         osc.start(t);
         osc.stop(t + 0.25);
-        setTimeout(() => { osc.disconnect(); g.disconnect(); }, 300);
+        setTimeout(() => {
+          osc.disconnect();
+          g.disconnect();
+        }, 300);
         break;
       }
-      case "explosion_small":
-      case "explosion_big":
-      case "explosion_base": {
-        const dur = type === "explosion_base" ? 0.8 : (type === "explosion_big" ? 0.5 : 0.25);
+      case 'explosion_small':
+      case 'explosion_big':
+      case 'explosion_base': {
+        const dur =
+          type === 'explosion_base'
+            ? 0.8
+            : type === 'explosion_big'
+              ? 0.5
+              : 0.25;
         const bufferSize = this.ctx.sampleRate * dur;
-        const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+        const buffer = this.ctx.createBuffer(
+          1,
+          bufferSize,
+          this.ctx.sampleRate
+        );
         const data = buffer.getChannelData(0);
         for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
         const noise = this.ctx.createBufferSource();
         noise.buffer = buffer;
         const filter = this.ctx.createBiquadFilter();
-        filter.type = "lowpass";
+        filter.type = 'lowpass';
         filter.frequency.setValueAtTime(600, t);
         filter.frequency.exponentialRampToValueAtTime(40, t + dur);
-        g.gain.setValueAtTime(type === "explosion_base" ? 0.8 : 0.5, t);
+        g.gain.setValueAtTime(type === 'explosion_base' ? 0.8 : 0.5, t);
         g.gain.exponentialRampToValueAtTime(0.01, t + dur);
         noise.connect(filter);
         filter.connect(g);
         noise.start(t);
-        setTimeout(() => { noise.disconnect(); filter.disconnect(); g.disconnect(); }, (dur + 0.1) * 1000);
+        setTimeout(
+          () => {
+            noise.disconnect();
+            filter.disconnect();
+            g.disconnect();
+          },
+          (dur + 0.1) * 1000
+        );
         break;
       }
-      case "explosion_tank": {
+      case 'explosion_tank': {
         const dur = 0.35;
         const bufferSize = this.ctx.sampleRate * dur;
-        const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+        const buffer = this.ctx.createBuffer(
+          1,
+          bufferSize,
+          this.ctx.sampleRate
+        );
         const data = buffer.getChannelData(0);
         for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
         const noise = this.ctx.createBufferSource();
         noise.buffer = buffer;
         const filter = this.ctx.createBiquadFilter();
-        filter.type = "lowpass";
+        filter.type = 'lowpass';
         filter.frequency.setValueAtTime(500, t);
         filter.frequency.exponentialRampToValueAtTime(50, t + dur);
         g.gain.setValueAtTime(0.45, t);
@@ -159,12 +229,19 @@ export class SymphonicAudioEngine {
         noise.connect(filter);
         filter.connect(g);
         noise.start(t);
-        setTimeout(() => { noise.disconnect(); filter.disconnect(); g.disconnect(); }, (dur + 0.1) * 1000);
+        setTimeout(
+          () => {
+            noise.disconnect();
+            filter.disconnect();
+            g.disconnect();
+          },
+          (dur + 0.1) * 1000
+        );
         break;
       }
-      case "hit_brick": {
+      case 'hit_brick': {
         const osc = this.ctx.createOscillator();
-        osc.type = "square";
+        osc.type = 'square';
         osc.frequency.setValueAtTime(180, t);
         osc.frequency.exponentialRampToValueAtTime(60, t + 0.07);
         g.gain.setValueAtTime(0.25, t);
@@ -172,14 +249,17 @@ export class SymphonicAudioEngine {
         osc.connect(g);
         osc.start(t);
         osc.stop(t + 0.07);
-        setTimeout(() => { osc.disconnect(); g.disconnect(); }, 100);
+        setTimeout(() => {
+          osc.disconnect();
+          g.disconnect();
+        }, 100);
         break;
       }
-      case "hit_steel": {
+      case 'hit_steel': {
         const osc1 = this.ctx.createOscillator();
         const osc2 = this.ctx.createOscillator();
-        osc1.type = "triangle";
-        osc2.type = "square";
+        osc1.type = 'triangle';
+        osc2.type = 'square';
         osc1.frequency.setValueAtTime(900, t);
         osc2.frequency.setValueAtTime(1350, t);
         osc1.frequency.exponentialRampToValueAtTime(400, t + 0.09);
@@ -188,14 +268,20 @@ export class SymphonicAudioEngine {
         g.gain.exponentialRampToValueAtTime(0.01, t + 0.09);
         osc1.connect(g);
         osc2.connect(g);
-        osc1.start(t); osc2.start(t);
-        osc1.stop(t + 0.09); osc2.stop(t + 0.09);
-        setTimeout(() => { osc1.disconnect(); osc2.disconnect(); g.disconnect(); }, 120);
+        osc1.start(t);
+        osc2.start(t);
+        osc1.stop(t + 0.09);
+        osc2.stop(t + 0.09);
+        setTimeout(() => {
+          osc1.disconnect();
+          osc2.disconnect();
+          g.disconnect();
+        }, 120);
         break;
       }
-      case "shield_active": {
+      case 'shield_active': {
         const osc = this.ctx.createOscillator();
-        osc.type = "sine";
+        osc.type = 'sine';
         osc.frequency.setValueAtTime(300, t);
         osc.frequency.exponentialRampToValueAtTime(900, t + 0.2);
         g.gain.setValueAtTime(0.25, t);
@@ -203,12 +289,15 @@ export class SymphonicAudioEngine {
         osc.connect(g);
         osc.start(t);
         osc.stop(t + 0.2);
-        setTimeout(() => { osc.disconnect(); g.disconnect(); }, 250);
+        setTimeout(() => {
+          osc.disconnect();
+          g.disconnect();
+        }, 250);
         break;
       }
-      case "time_freeze": {
+      case 'time_freeze': {
         const osc = this.ctx.createOscillator();
-        osc.type = "sine";
+        osc.type = 'sine';
         osc.frequency.setValueAtTime(900, t);
         osc.frequency.exponentialRampToValueAtTime(180, t + 0.6);
         g.gain.setValueAtTime(0.3, t);
@@ -216,26 +305,32 @@ export class SymphonicAudioEngine {
         osc.connect(g);
         osc.start(t);
         osc.stop(t + 0.6);
-        setTimeout(() => { osc.disconnect(); g.disconnect(); }, 650);
+        setTimeout(() => {
+          osc.disconnect();
+          g.disconnect();
+        }, 650);
         break;
       }
-      case "menu_click": {
+      case 'menu_click': {
         const osc = this.ctx.createOscillator();
-        osc.type = "sine";
+        osc.type = 'sine';
         osc.frequency.setValueAtTime(600, t);
         g.gain.setValueAtTime(0.18, t);
         g.gain.exponentialRampToValueAtTime(0.01, t + 0.05);
         osc.connect(g);
         osc.start(t);
         osc.stop(t + 0.05);
-        setTimeout(() => { osc.disconnect(); g.disconnect(); }, 80);
+        setTimeout(() => {
+          osc.disconnect();
+          g.disconnect();
+        }, 80);
         break;
       }
-      case "menu_start": {
+      case 'menu_start': {
         [440, 660, 880].forEach((freq, i) => {
           const osc = this.ctx.createOscillator();
           const og = this.ctx.createGain();
-          osc.type = "square";
+          osc.type = 'square';
           osc.frequency.setValueAtTime(freq, t + i * 0.06);
           og.gain.setValueAtTime(0.2, t + i * 0.06);
           og.gain.exponentialRampToValueAtTime(0.01, t + i * 0.06 + 0.1);
@@ -243,16 +338,22 @@ export class SymphonicAudioEngine {
           og.connect(this.sfxGain);
           osc.start(t + i * 0.06);
           osc.stop(t + i * 0.06 + 0.1);
-          setTimeout(() => { osc.disconnect(); og.disconnect(); }, (i * 60) + 150);
+          setTimeout(
+            () => {
+              osc.disconnect();
+              og.disconnect();
+            },
+            i * 60 + 150
+          );
         });
         g.disconnect();
         break;
       }
-      case "stage_start_fanfare": {
+      case 'stage_start_fanfare': {
         [523.25, 659.25, 783.99, 1046.5].forEach((freq, i) => {
           const osc = this.ctx.createOscillator();
           const og = this.ctx.createGain();
-          osc.type = "triangle";
+          osc.type = 'triangle';
           osc.frequency.setValueAtTime(freq, t + i * 0.09);
           og.gain.setValueAtTime(0.25, t + i * 0.09);
           og.gain.exponentialRampToValueAtTime(0.01, t + i * 0.09 + 0.22);
@@ -260,16 +361,22 @@ export class SymphonicAudioEngine {
           og.connect(this.sfxGain);
           osc.start(t + i * 0.09);
           osc.stop(t + i * 0.09 + 0.22);
-          setTimeout(() => { osc.disconnect(); og.disconnect(); }, (i * 90) + 300);
+          setTimeout(
+            () => {
+              osc.disconnect();
+              og.disconnect();
+            },
+            i * 90 + 300
+          );
         });
         g.disconnect();
         break;
       }
-      case "stage_clear": {
+      case 'stage_clear': {
         [523.25, 659.25, 783.99, 1046.5, 1318.5].forEach((freq, i) => {
           const osc = this.ctx.createOscillator();
           const og = this.ctx.createGain();
-          osc.type = "square";
+          osc.type = 'square';
           osc.frequency.setValueAtTime(freq, t + i * 0.1);
           og.gain.setValueAtTime(0.22, t + i * 0.1);
           og.gain.exponentialRampToValueAtTime(0.01, t + i * 0.1 + 0.25);
@@ -277,16 +384,22 @@ export class SymphonicAudioEngine {
           og.connect(this.sfxGain);
           osc.start(t + i * 0.1);
           osc.stop(t + i * 0.1 + 0.25);
-          setTimeout(() => { osc.disconnect(); og.disconnect(); }, (i * 100) + 350);
+          setTimeout(
+            () => {
+              osc.disconnect();
+              og.disconnect();
+            },
+            i * 100 + 350
+          );
         });
         g.disconnect();
         break;
       }
-      case "game_over": {
+      case 'game_over': {
         [392, 349.23, 293.66, 220].forEach((freq, i) => {
           const osc = this.ctx.createOscillator();
           const og = this.ctx.createGain();
-          osc.type = "sawtooth";
+          osc.type = 'sawtooth';
           osc.frequency.setValueAtTime(freq, t + i * 0.18);
           og.gain.setValueAtTime(0.22, t + i * 0.18);
           og.gain.exponentialRampToValueAtTime(0.01, t + i * 0.18 + 0.3);
@@ -294,14 +407,20 @@ export class SymphonicAudioEngine {
           og.connect(this.sfxGain);
           osc.start(t + i * 0.18);
           osc.stop(t + i * 0.18 + 0.3);
-          setTimeout(() => { osc.disconnect(); og.disconnect(); }, (i * 180) + 450);
+          setTimeout(
+            () => {
+              osc.disconnect();
+              og.disconnect();
+            },
+            i * 180 + 450
+          );
         });
         g.disconnect();
         break;
       }
       default: {
         const osc = this.ctx.createOscillator();
-        osc.type = "square";
+        osc.type = 'square';
         osc.frequency.setValueAtTime(440, t);
         osc.frequency.exponentialRampToValueAtTime(220, t + 0.15);
         g.gain.setValueAtTime(0.2, t);
@@ -309,7 +428,10 @@ export class SymphonicAudioEngine {
         osc.connect(g);
         osc.start(t);
         osc.stop(t + 0.15);
-        setTimeout(() => { osc.disconnect(); g.disconnect(); }, 200);
+        setTimeout(() => {
+          osc.disconnect();
+          g.disconnect();
+        }, 200);
         break;
       }
     }
@@ -322,7 +444,9 @@ export class SymphonicAudioEngine {
     this.isBgmPlaying = true;
 
     const bassNotes = [110, 110, 146.83, 130.81, 110, 110, 164.81, 146.83];
-    const leadNotes = [440, 523.25, 659.25, 587.33, 523.25, 440, 493.88, 523.25];
+    const leadNotes = [
+      440, 523.25, 659.25, 587.33, 523.25, 440, 493.88, 523.25,
+    ];
     let step = 0;
 
     this.bgmInterval = setInterval(() => {
@@ -330,7 +454,7 @@ export class SymphonicAudioEngine {
       const t = this.ctx.currentTime;
 
       const bassOsc = this.ctx.createOscillator();
-      bassOsc.type = "triangle";
+      bassOsc.type = 'triangle';
       bassOsc.frequency.setValueAtTime(bassNotes[step % bassNotes.length], t);
       const bGain = this.ctx.createGain();
       bGain.gain.setValueAtTime(0.25, t);
@@ -339,12 +463,18 @@ export class SymphonicAudioEngine {
       bGain.connect(this.bgmGain);
       bassOsc.start(t);
       bassOsc.stop(t + 0.18);
-      setTimeout(() => { bassOsc.disconnect(); bGain.disconnect(); }, 200);
+      setTimeout(() => {
+        bassOsc.disconnect();
+        bGain.disconnect();
+      }, 200);
 
       if (step % 2 === 0) {
         const leadOsc = this.ctx.createOscillator();
-        leadOsc.type = "square";
-        leadOsc.frequency.setValueAtTime(leadNotes[(step / 2) % leadNotes.length], t);
+        leadOsc.type = 'square';
+        leadOsc.frequency.setValueAtTime(
+          leadNotes[(step / 2) % leadNotes.length],
+          t
+        );
         const lGain = this.ctx.createGain();
         lGain.gain.setValueAtTime(0.18, t);
         lGain.gain.exponentialRampToValueAtTime(0.01, t + 0.35);
@@ -352,7 +482,10 @@ export class SymphonicAudioEngine {
         lGain.connect(this.bgmGain);
         leadOsc.start(t);
         leadOsc.stop(t + 0.35);
-        setTimeout(() => { leadOsc.disconnect(); lGain.disconnect(); }, 400);
+        setTimeout(() => {
+          leadOsc.disconnect();
+          lGain.disconnect();
+        }, 400);
       }
 
       step++;

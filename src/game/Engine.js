@@ -5,7 +5,20 @@
 
 import { TILE, SNES_PALETTE, MapDataGenerator } from './MapData.js';
 import { TILE_EXT } from './MapDataJSON.js';
-import { DIR, Tank, EnemyTank, ChaserTank, PatrolTank, KamikazeTank, Bullet, PowerUpItem, DestructibleProp, LandMine, EagleBase, stepInDirection } from './Entities.js';
+import {
+  DIR,
+  Tank,
+  EnemyTank,
+  ChaserTank,
+  PatrolTank,
+  KamikazeTank,
+  Bullet,
+  PowerUpItem,
+  DestructibleProp,
+  LandMine,
+  EagleBase,
+  stepInDirection,
+} from './Entities.js';
 import { BossTank } from './Boss.js';
 import { ParticleSystem } from './Particles.js';
 
@@ -18,8 +31,8 @@ export class GameEngine {
     this.weaponsManager = weaponsManager;
     this.uiCallbacks = uiCallbacks || {};
 
-    this.tileSize = 64;     // 大格 64px（升級自 24px）
-    this.subTileSize = 32;   // 1/2 微觀小格 32px（升級自 12px）
+    this.tileSize = 64; // 大格 64px（升級自 24px）
+    this.subTileSize = 32; // 1/2 微觀小格 32px（升級自 12px）
 
     // 視窗滿版 100vw x 100vh
     this.canvas.width = window.innerWidth;
@@ -42,17 +55,17 @@ export class GameEngine {
     this.enemiesOnField = [];
     this.bullets = [];
     this.powerUps = [];
-    this.props = [];        // 可破壞物件（油桶/樹樁/小屋）
-    this.mines = [];        // 地雷
+    this.props = []; // 可破壞物件（油桶/樹樁/小屋）
+    this.mines = []; // 地雷
     this.particles = new ParticleSystem();
 
     // 三層地圖
-    this.mapFloor    = [];  // 地面層（主題底材）
-    this.mapObstacle = [];  // 障礙層（碰撞用）
-    this.mapRoof     = [];  // 屋頂裝飾層
+    this.mapFloor = []; // 地面層（主題底材）
+    this.mapObstacle = []; // 障礙層（碰撞用）
+    this.mapRoof = []; // 屋頂裝飾層
     this.currentTheme = 'VILLAGE'; // 五期主題名稱
-    this._waterAnim = 0;    // 水域動畫計數器
-    this._lavaAnim  = 0;    // 熔岩動畫計數器
+    this._waterAnim = 0; // 水域動畫計數器
+    this._lavaAnim = 0; // 熔岩動畫計數器
 
     this.player1 = null;
     this.player2 = null;
@@ -76,6 +89,7 @@ export class GameEngine {
 
     // 暫停狀態
     this.isPaused = false;
+    this.debugHitbox = false;
 
     // ===== 可自訂快捷鍵綁定系統 =====
     // 預設綁定，可由外部 (main.js KeyBinding Manager) 覆蓋
@@ -97,7 +111,7 @@ export class GameEngine {
       arrowDown: 'ArrowDown',
       arrowLeft: 'ArrowLeft',
       arrowRight: 'ArrowRight',
-      p2shoot: 'KeyM_P2',      // P2 使用不同按鍵
+      p2shoot: 'KeyM_P2', // P2 使用不同按鍵
       p2dash: 'KeyN',
       weapon1: 'Digit1',
       weapon2: 'Digit2',
@@ -160,10 +174,18 @@ export class GameEngine {
   }
 
   bindEvents() {
-    window.addEventListener('keydown', e => {
+    window.addEventListener('keydown', (e) => {
       const kb = this.keyBindings;
       // 阻止方向鍵/空白鍵捲動頁面
-      if ([kb.arrowUp, kb.arrowDown, kb.arrowLeft, kb.arrowRight, 'Space'].includes(e.code)) {
+      if (
+        [
+          kb.arrowUp,
+          kb.arrowDown,
+          kb.arrowLeft,
+          kb.arrowRight,
+          'Space',
+        ].includes(e.code)
+      ) {
         e.preventDefault();
       }
       this.keys[e.code] = true;
@@ -171,6 +193,12 @@ export class GameEngine {
       // ===== 暫停（PLAYING 或 PAUSED 皆可切換）=====
       if (e.code === kb.pause) {
         this.togglePause();
+        return;
+      }
+
+      // ===== 顯示碰撞框（~ 鍵）=====
+      if (e.code === 'Backquote') {
+        this.debugHitbox = !this.debugHitbox;
         return;
       }
 
@@ -199,30 +227,43 @@ export class GameEngine {
 
         if (this.gameMode === '2P') {
           if (e.code === 'Numpad0' || e.code === 'Enter') this.playerShoot(2);
-          if (e.code === kb.p2dash || e.code === 'NumpadDecimal') this.playerDash(2);
+          if (e.code === kb.p2dash || e.code === 'NumpadDecimal')
+            this.playerDash(2);
         }
       }
     });
 
-    window.addEventListener('keyup', e => {
+    window.addEventListener('keyup', (e) => {
       const kb = this.keyBindings;
-      if ([kb.arrowUp, kb.arrowDown, kb.arrowLeft, kb.arrowRight, 'Space'].includes(e.code)) {
+      if (
+        [
+          kb.arrowUp,
+          kb.arrowDown,
+          kb.arrowLeft,
+          kb.arrowRight,
+          'Space',
+        ].includes(e.code)
+      ) {
         e.preventDefault();
       }
       this.keys[e.code] = false;
     });
 
-    this.canvas.addEventListener('contextmenu', e => e.preventDefault());
+    this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 
-    this.canvas.addEventListener('mousemove', e => {
+    this.canvas.addEventListener('mousemove', (e) => {
       const rect = this.canvas.getBoundingClientRect();
       this.mouseX = e.clientX - rect.left;
       this.mouseY = e.clientY - rect.top;
 
       // 轉換為世界座標算角度（僅在 PLAYING 且非暫停時更新）
-      if (this.player1 && this.player1.alive &&
-          (this.controlMode === 'mouse_keyboard' || this.controlMode === 'mouse_only') &&
-          this.state === 'PLAYING') {
+      if (
+        this.player1 &&
+        this.player1.alive &&
+        (this.controlMode === 'mouse_keyboard' ||
+          this.controlMode === 'mouse_only') &&
+        this.state === 'PLAYING'
+      ) {
         const worldMouseX = this.mouseX + this.camera.x;
         const worldMouseY = this.mouseY + this.camera.y;
         const dx = worldMouseX - (this.player1.x + 12);
@@ -231,12 +272,15 @@ export class GameEngine {
       }
     });
 
-    this.canvas.addEventListener('mousedown', e => {
+    this.canvas.addEventListener('mousedown', (e) => {
       // 僅在 PLAYING 且非暫停狀態才處理
       if (this.state !== 'PLAYING' || this.isPaused) return;
       if (e.button === 0) {
         this.isMouseDown = true;
-        if (this.controlMode === 'mouse_keyboard' || this.controlMode === 'mouse_only') {
+        if (
+          this.controlMode === 'mouse_keyboard' ||
+          this.controlMode === 'mouse_only'
+        ) {
           this.playerShoot(1);
         }
       } else if (e.button === 2) {
@@ -245,7 +289,7 @@ export class GameEngine {
       }
     });
 
-    window.addEventListener('mouseup', e => {
+    window.addEventListener('mouseup', (e) => {
       if (e.button === 0) this.isMouseDown = false;
     });
   }
@@ -275,8 +319,12 @@ export class GameEngine {
   playerDash(playerNum = 1) {
     const p = playerNum === 1 ? this.player1 : this.player2;
     if (p && p.dash()) {
-      this.audioEngine.playSfx("shield_active");
-      this.particles.createShockwave(p.x + 12, p.y + 12, p.playerNum === 2 ? '#00e5ff' : '#76ff03');
+      this.audioEngine.playSfx('shield_active');
+      this.particles.createShockwave(
+        p.x + 12,
+        p.y + 12,
+        p.playerNum === 2 ? '#00e5ff' : '#76ff03'
+      );
     }
   }
 
@@ -286,9 +334,9 @@ export class GameEngine {
     this.map = this.levelManager.loadStage(stageNum, false); // 26x26 核心地圖
 
     // 載入三層地圖資料
-    this.mapFloor    = this.levelManager.currentFloor    || [];
+    this.mapFloor = this.levelManager.currentFloor || [];
     this.mapObstacle = this.levelManager.currentObstacle || this.map;
-    this.mapRoof     = this.levelManager.currentRoof     || [];
+    this.mapRoof = this.levelManager.currentRoof || [];
     this.currentTheme = this.levelManager.currentTheme || 'VILLAGE';
 
     // subMap 用 obstacle 層生成（碰撞用）
@@ -306,8 +354,24 @@ export class GameEngine {
     this.props = [];
     this.mines = [];
 
-    this.stageKillsP1 = { basic: 0, fast: 0, power: 0, armor: 0, chaser: 0, patrol: 0, kamikaze: 0 };
-    this.stageKillsP2 = { basic: 0, fast: 0, power: 0, armor: 0, chaser: 0, patrol: 0, kamikaze: 0 };
+    this.stageKillsP1 = {
+      basic: 0,
+      fast: 0,
+      power: 0,
+      armor: 0,
+      chaser: 0,
+      patrol: 0,
+      kamikaze: 0,
+    };
+    this.stageKillsP2 = {
+      basic: 0,
+      fast: 0,
+      power: 0,
+      armor: 0,
+      chaser: 0,
+      patrol: 0,
+      kamikaze: 0,
+    };
 
     // 自動從 obstacle 層讀取可破壞物件與地雷
     const MAP = this.mapObstacle;
@@ -342,13 +406,33 @@ export class GameEngine {
     const offsetC = 0;
     const offsetR = 0;
 
-    this.player1 = new Tank((8 + offsetC) * this.tileSize, (22 + offsetR) * this.tileSize, true, 1);
-    this.player2 = this.gameMode === '2P' ? new Tank((16 + offsetC) * this.tileSize, (22 + offsetR) * this.tileSize, true, 2) : null;
-    this.eagleBase = new EagleBase((12 + offsetC) * this.tileSize, (23 + offsetR) * this.tileSize);
+    this.player1 = new Tank(
+      (8 + offsetC) * this.tileSize,
+      (22 + offsetR) * this.tileSize,
+      true,
+      1
+    );
+    this.player2 =
+      this.gameMode === '2P'
+        ? new Tank(
+            (16 + offsetC) * this.tileSize,
+            (22 + offsetR) * this.tileSize,
+            true,
+            2
+          )
+        : null;
+    this.eagleBase = new EagleBase(
+      (12 + offsetC) * this.tileSize,
+      (23 + offsetR) * this.tileSize
+    );
 
     // 每 5 關登場 Boss
     if (stageNum % 5 === 0) {
-      this.boss = new BossTank((11 + offsetC) * this.tileSize, (2 + offsetR) * this.tileSize, stageNum);
+      this.boss = new BossTank(
+        (11 + offsetC) * this.tileSize,
+        (2 + offsetR) * this.tileSize,
+        stageNum
+      );
       this.totalEnemiesToSpawn = 0;
       this.enemiesRemaining = 1;
     } else {
@@ -362,7 +446,7 @@ export class GameEngine {
     else this.setWeatherMode('none');
 
     this.state = 'PLAYING';
-    this.audioEngine.playSfx("stage_start_fanfare");
+    this.audioEngine.playSfx('stage_start_fanfare');
     this.audioEngine.startBgm();
 
     if (this.uiCallbacks.onStatusUpdate) {
@@ -386,34 +470,60 @@ export class GameEngine {
 
     const bx = p.x + 12;
     const by = p.y + 12;
-    const isMouseAim = (playerNum === 1 && (this.controlMode === 'mouse_keyboard' || this.controlMode === 'mouse_only'));
-    const baseAngle = (isMouseAim && p.turretAngle !== null)
-      ? p.turretAngle
-      : ((p.dir * 90 - 90) * Math.PI / 180);
+    const isMouseAim =
+      playerNum === 1 &&
+      (this.controlMode === 'mouse_keyboard' ||
+        this.controlMode === 'mouse_only');
+    const baseAngle =
+      isMouseAim && p.turretAngle !== null
+        ? p.turretAngle
+        : ((p.dir * 90 - 90) * Math.PI) / 180;
 
     const currentWpn = this.weaponsManager.getCurrentWeapon();
 
     if (currentWpn.id === 'rapid') {
-      this.bullets.push(new Bullet(bx - 6, by - 6, p.dir, true, 'rapid', baseAngle, playerNum));
-      this.bullets.push(new Bullet(bx + 6, by + 6, p.dir, true, 'rapid', baseAngle, playerNum));
-      this.audioEngine.playSfx("shoot_normal");
+      this.bullets.push(
+        new Bullet(bx - 6, by - 6, p.dir, true, 'rapid', baseAngle, playerNum)
+      );
+      this.bullets.push(
+        new Bullet(bx + 6, by + 6, p.dir, true, 'rapid', baseAngle, playerNum)
+      );
+      this.audioEngine.playSfx('shoot_normal');
     } else if (currentWpn.id === 'shotgun') {
-      [-0.3, 0, 0.3].forEach(angleOffset => {
-        this.bullets.push(new Bullet(bx, by, p.dir, true, 'spread', baseAngle + angleOffset, playerNum));
+      [-0.3, 0, 0.3].forEach((angleOffset) => {
+        this.bullets.push(
+          new Bullet(
+            bx,
+            by,
+            p.dir,
+            true,
+            'spread',
+            baseAngle + angleOffset,
+            playerNum
+          )
+        );
       });
-      this.audioEngine.playSfx("shoot_spread");
+      this.audioEngine.playSfx('shoot_spread');
     } else if (currentWpn.id === 'laser') {
-      this.bullets.push(new Bullet(bx, by, p.dir, true, 'laser', baseAngle, playerNum));
-      this.audioEngine.playSfx("shoot_laser");
+      this.bullets.push(
+        new Bullet(bx, by, p.dir, true, 'laser', baseAngle, playerNum)
+      );
+      this.audioEngine.playSfx('shoot_laser');
     } else if (currentWpn.id === 'ap') {
-      this.bullets.push(new Bullet(bx, by, p.dir, true, 'ap', baseAngle, playerNum));
-      this.audioEngine.playSfx("shoot_normal");
+      this.bullets.push(
+        new Bullet(bx, by, p.dir, true, 'ap', baseAngle, playerNum)
+      );
+      this.audioEngine.playSfx('shoot_normal');
     } else if (currentWpn.id === 'homing') {
-      this.bullets.push(new Bullet(bx, by, p.dir, true, 'homing', baseAngle, playerNum));
-      this.audioEngine.playSfx("shoot_normal");
+      this.bullets.push(
+        new Bullet(bx, by, p.dir, true, 'homing', baseAngle, playerNum)
+      );
+      this.audioEngine.playSfx('shoot_normal');
     } else {
-      this.bullets.push(new Bullet(bx, by, p.dir, true, 'normal', baseAngle, playerNum));
-      this.audioEngine.playSfx("shoot_normal");
+      this.bullets.push(
+        new Bullet(bx, by, p.dir, true, 'normal', baseAngle, playerNum)
+      );
+      this.audioEngine.playSfx('shoot_normal');
     }
   }
 
@@ -423,20 +533,26 @@ export class GameEngine {
     const useBomb = this.specialWeaponToggle[playerNum];
 
     if (!useBomb && this.weaponsManager.isActive(18)) {
-      this.enemiesOnField.forEach(e => { e.isFrozen = true; e.freezeTimer = 300; });
-      if (this.boss) { this.boss.isFrozen = true; this.boss.freezeTimer = 180; }
-      this.audioEngine.playSfx("time_freeze");
+      this.enemiesOnField.forEach((e) => {
+        e.isFrozen = true;
+        e.freezeTimer = 300;
+      });
+      if (this.boss) {
+        this.boss.isFrozen = true;
+        this.boss.freezeTimer = 180;
+      }
+      this.audioEngine.playSfx('time_freeze');
       this.specialWeaponCooldown[playerNum] = 600; // 10 秒冷卻
       this.specialWeaponToggle[playerNum] = true;
     } else if (useBomb && this.weaponsManager.isActive(21)) {
-      this.enemiesOnField.forEach(e => {
+      this.enemiesOnField.forEach((e) => {
         e.alive = false;
         this.particles.createExplosion(e.x + 12, e.y + 12, '#ff3d00', 25);
       });
       this.enemiesOnField = [];
       this.enemiesRemaining = Math.max(0, this.enemiesRemaining - 5);
       this.triggerScreenShake();
-      this.audioEngine.playSfx("explosion_big");
+      this.audioEngine.playSfx('explosion_big');
       this.specialWeaponCooldown[playerNum] = 900; // 15 秒冷卻
       this.specialWeaponToggle[playerNum] = false;
     }
@@ -459,26 +575,91 @@ export class GameEngine {
     }
   }
 
+  pollGamepads() {
+    const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
+    for (let i = 0; i < gamepads.length; i++) {
+      const gp = gamepads[i];
+      if (gp) {
+        const axisX = gp.axes[0] || 0;
+        const axisY = gp.axes[1] || 0;
+        const dpadUp = gp.buttons[12]?.pressed;
+        const dpadDown = gp.buttons[13]?.pressed;
+        const dpadLeft = gp.buttons[14]?.pressed;
+        const dpadRight = gp.buttons[15]?.pressed;
+
+        this.keys['ArrowUp'] = dpadUp || axisY < -0.5;
+        this.keys['ArrowDown'] = dpadDown || axisY > 0.5;
+        this.keys['ArrowLeft'] = dpadLeft || axisX < -0.5;
+        this.keys['ArrowRight'] = dpadRight || axisX > 0.5;
+
+        // Button 0 (A) -> Shoot
+        if (gp.buttons[0]?.pressed) {
+          if (!this.gamepadShootPressed) {
+            this.playerShoot(1);
+            this.gamepadShootPressed = true;
+          }
+        } else {
+          this.gamepadShootPressed = false;
+        }
+
+        // Button 1/2 (B/X) -> Dash
+        if (gp.buttons[1]?.pressed || gp.buttons[2]?.pressed) {
+          if (!this.gamepadDashPressed) {
+            this.playerDash(1);
+            this.gamepadDashPressed = true;
+          }
+        } else {
+          this.gamepadDashPressed = false;
+        }
+
+        // Button 3 (Y) -> Special
+        if (gp.buttons[3]?.pressed) {
+          if (!this.gamepadSpecialPressed) {
+            this.useSpecialWeapon(1);
+            this.gamepadSpecialPressed = true;
+          }
+        } else {
+          this.gamepadSpecialPressed = false;
+        }
+        break; // 目前先處理 1P
+      }
+    }
+  }
+
   update() {
     if (this.state !== 'PLAYING' || this.isPaused) return;
+
+    this.pollGamepads();
 
     if (this.specialWeaponCooldown[1] > 0) this.specialWeaponCooldown[1]--;
     if (this.specialWeaponCooldown[2] > 0) this.specialWeaponCooldown[2]--;
 
     // 世界大小以 mapObstacle（26x26）× 64px 計算
-    const obstMap = this.mapObstacle && this.mapObstacle.length > 0 ? this.mapObstacle : this.map;
+    const obstMap =
+      this.mapObstacle && this.mapObstacle.length > 0
+        ? this.mapObstacle
+        : this.map;
     const gridCols = obstMap ? obstMap.length : 26;
-    const worldWidth  = gridCols * this.tileSize;
+    const worldWidth = gridCols * this.tileSize;
     const worldHeight = gridCols * this.tileSize;
 
     // 1. 平滑跟隨攝影機（64px 坦克中心 = x+32）
     const HALF = this.tileSize / 2; // 32
     if (this.player1 && this.player1.alive) {
-      this.camera.targetX = (this.player1.x + HALF) - this.canvas.width  / 2;
-      this.camera.targetY = (this.player1.y + HALF) - this.canvas.height / 2;
+      this.camera.targetX = this.player1.x + HALF - this.canvas.width / 2;
+      this.camera.targetY = this.player1.y + HALF - this.canvas.height / 2;
     }
-    this.camera.targetX = Math.max(0, Math.min(Math.max(0, worldWidth  - this.canvas.width),  this.camera.targetX));
-    this.camera.targetY = Math.max(0, Math.min(Math.max(0, worldHeight - this.canvas.height), this.camera.targetY));
+    this.camera.targetX = Math.max(
+      0,
+      Math.min(Math.max(0, worldWidth - this.canvas.width), this.camera.targetX)
+    );
+    this.camera.targetY = Math.max(
+      0,
+      Math.min(
+        Math.max(0, worldHeight - this.canvas.height),
+        this.camera.targetY
+      )
+    );
 
     this.camera.x += (this.camera.targetX - this.camera.x) * 0.12;
     this.camera.y += (this.camera.targetY - this.camera.y) * 0.12;
@@ -492,8 +673,15 @@ export class GameEngine {
       // 多元地形交互：泥沼減速 & 加速軌道（64px 坦克中心 = x+32）
       const pTileCol = Math.floor((p.x + HALF) / this.tileSize);
       const pTileRow = Math.floor((p.y + HALF) / this.tileSize);
-      const curMap = this.mapObstacle && this.mapObstacle.length > 0 ? this.mapObstacle : this.map;
-      if (curMap && curMap[pTileRow] && curMap[pTileRow][pTileCol] !== undefined) {
+      const curMap =
+        this.mapObstacle && this.mapObstacle.length > 0
+          ? this.mapObstacle
+          : this.map;
+      if (
+        curMap &&
+        curMap[pTileRow] &&
+        curMap[pTileRow][pTileCol] !== undefined
+      ) {
         const curTile = curMap[pTileRow][pTileCol];
         if (curTile === TILE.SAND) moveSpeed *= 0.5;
         else if (curTile === TILE.BOOST) moveSpeed *= 1.7;
@@ -503,37 +691,76 @@ export class GameEngine {
           p.x = worldWidth - p.x - this.tileSize;
           p.y = worldHeight - p.y - this.tileSize;
           this.particles.createShockwave(p.x + HALF, p.y + HALF, '#f72585');
-          this.audioEngine.playSfx("time_freeze");
+          this.audioEngine.playSfx('time_freeze');
         }
       }
 
       let dx = 0;
       let dy = 0;
 
-      if (idx === 0) { // P1 Key input
+      if (idx === 0) {
+        // P1 Key input
         const kb = this.keyBindings;
-        if (this.controlMode === 'mouse_keyboard' || this.controlMode === 'mouse_only') {
-          if (this.keys[kb.moveUp])    { dy -= moveSpeed; p.dir = DIR.UP; }
-          if (this.keys[kb.moveDown])  { dy += moveSpeed; p.dir = DIR.DOWN; }
-          if (this.keys[kb.moveLeft])  { dx -= moveSpeed; p.dir = DIR.LEFT; }
-          if (this.keys[kb.moveRight]) { dx += moveSpeed; p.dir = DIR.RIGHT; }
+        if (
+          this.controlMode === 'mouse_keyboard' ||
+          this.controlMode === 'mouse_only'
+        ) {
+          if (this.keys[kb.moveUp]) {
+            dy -= moveSpeed;
+            p.dir = DIR.UP;
+          }
+          if (this.keys[kb.moveDown]) {
+            dy += moveSpeed;
+            p.dir = DIR.DOWN;
+          }
+          if (this.keys[kb.moveLeft]) {
+            dx -= moveSpeed;
+            p.dir = DIR.LEFT;
+          }
+          if (this.keys[kb.moveRight]) {
+            dx += moveSpeed;
+            p.dir = DIR.RIGHT;
+          }
         } else {
-          if (this.keys[kb.arrowUp]   || this.keys[kb.moveUp])    { dy -= moveSpeed; p.dir = DIR.UP;    p.turretAngle = null; }
-          else if (this.keys[kb.arrowDown]  || this.keys[kb.moveDown])  { dy += moveSpeed; p.dir = DIR.DOWN;  p.turretAngle = null; }
-          else if (this.keys[kb.arrowLeft]  || this.keys[kb.moveLeft])  { dx -= moveSpeed; p.dir = DIR.LEFT;  p.turretAngle = null; }
-          else if (this.keys[kb.arrowRight] || this.keys[kb.moveRight]) { dx += moveSpeed; p.dir = DIR.RIGHT; p.turretAngle = null; }
+          if (this.keys[kb.arrowUp] || this.keys[kb.moveUp]) {
+            dy -= moveSpeed;
+            p.dir = DIR.UP;
+            p.turretAngle = null;
+          } else if (this.keys[kb.arrowDown] || this.keys[kb.moveDown]) {
+            dy += moveSpeed;
+            p.dir = DIR.DOWN;
+            p.turretAngle = null;
+          } else if (this.keys[kb.arrowLeft] || this.keys[kb.moveLeft]) {
+            dx -= moveSpeed;
+            p.dir = DIR.LEFT;
+            p.turretAngle = null;
+          } else if (this.keys[kb.arrowRight] || this.keys[kb.moveRight]) {
+            dx += moveSpeed;
+            p.dir = DIR.RIGHT;
+            p.turretAngle = null;
+          }
         }
-      } else if (idx === 1) { // P2 Key input
-        if (this.keys['ArrowUp']) { dy -= moveSpeed; p.dir = DIR.UP; }
-        else if (this.keys['ArrowDown']) { dy += moveSpeed; p.dir = DIR.DOWN; }
-        else if (this.keys['ArrowLeft']) { dx -= moveSpeed; p.dir = DIR.LEFT; }
-        else if (this.keys['ArrowRight']) { dx += moveSpeed; p.dir = DIR.RIGHT; }
+      } else if (idx === 1) {
+        // P2 Key input
+        if (this.keys['ArrowUp']) {
+          dy -= moveSpeed;
+          p.dir = DIR.UP;
+        } else if (this.keys['ArrowDown']) {
+          dy += moveSpeed;
+          p.dir = DIR.DOWN;
+        } else if (this.keys['ArrowLeft']) {
+          dx -= moveSpeed;
+          p.dir = DIR.LEFT;
+        } else if (this.keys['ArrowRight']) {
+          dx += moveSpeed;
+          p.dir = DIR.RIGHT;
+        }
       }
 
       if (dx !== 0 || dy !== 0) {
         const pW = p.width || this.tileSize;
         const pH = p.height || this.tileSize;
-        let nx = Math.max(0, Math.min(worldWidth  - pW, p.x + dx));
+        let nx = Math.max(0, Math.min(worldWidth - pW, p.x + dx));
         let ny = Math.max(0, Math.min(worldHeight - pH, p.y + dy));
         if (this.canMoveTo(nx, ny, p)) {
           p.x = nx;
@@ -543,14 +770,22 @@ export class GameEngine {
     });
 
     // 連發按鍵（僅在 PLAYING 且非暫停時處理）
-    if (this.isMouseDown && !this.isPaused &&
-        (this.controlMode === 'mouse_keyboard' || this.controlMode === 'mouse_only')) {
+    if (
+      this.isMouseDown &&
+      !this.isPaused &&
+      (this.controlMode === 'mouse_keyboard' ||
+        this.controlMode === 'mouse_only')
+    ) {
       this.playerShoot(1);
     }
 
     // 3. 生成敵軍
     this.spawnTimer++;
-    if (this.spawnTimer > 120 && this.enemiesOnField.length < 6 && this.totalEnemiesToSpawn > 0) {
+    if (
+      this.spawnTimer > 120 &&
+      this.enemiesOnField.length < 6 &&
+      this.totalEnemiesToSpawn > 0
+    ) {
       this.spawnTimer = 0;
       const spawnCols = [0, Math.floor(gridCols / 2), gridCols - 1];
       const col = spawnCols[Math.floor(Math.random() * spawnCols.length)];
@@ -591,7 +826,7 @@ export class GameEngine {
     }
 
     // 4. 更新敵軍
-    this.enemiesOnField.forEach(enemy => {
+    this.enemiesOnField.forEach((enemy) => {
       if (!enemy.alive || enemy.isFrozen) return;
       // 特化 AI：追蹤型
       if (enemy.isChaser && this.player1 && this.player1.alive) {
@@ -604,7 +839,12 @@ export class GameEngine {
         // 一般敵人
         enemy.update();
         if (Math.random() < 0.02) enemy.dir = Math.floor(Math.random() * 4);
-        const { x: nx, y: ny } = stepInDirection(enemy.x, enemy.y, enemy.dir, enemy.speed);
+        const { x: nx, y: ny } = stepInDirection(
+          enemy.x,
+          enemy.y,
+          enemy.dir,
+          enemy.speed
+        );
 
         if (this.canMoveTo(nx, ny, enemy)) {
           enemy.x = nx;
@@ -618,31 +858,65 @@ export class GameEngine {
       const halfSize = (enemy.width || 64) / 2;
       if (enemy.cooldown <= 0 && Math.random() < 0.03) {
         enemy.cooldown = 45;
-        this.bullets.push(new Bullet(enemy.x + halfSize, enemy.y + halfSize, enemy.dir, false, 'normal'));
+        this.bullets.push(
+          new Bullet(
+            enemy.x + halfSize,
+            enemy.y + halfSize,
+            enemy.dir,
+            false,
+            'normal'
+          )
+        );
       }
     });
 
     // 4b. 可破壞物件更新
-    this.props.forEach(prop => prop.update && prop.update());
+    this.props.forEach((prop) => prop.update && prop.update());
 
     // 4c. 地雷觸發判斷
-    const allTanks = [this.player1, this.player2, ...this.enemiesOnField].filter(t => t && t.alive);
+    const allTanks = [
+      this.player1,
+      this.player2,
+      ...this.enemiesOnField,
+    ].filter((t) => t && t.alive);
     for (let i = this.mines.length - 1; i >= 0; i--) {
       const mine = this.mines[i];
-      if (!mine.alive) { this.mines.splice(i, 1); continue; }
+      if (!mine.alive) {
+        this.mines.splice(i, 1);
+        continue;
+      }
       for (const tank of allTanks) {
-        if (this.checkOverlap(tank.x, tank.y, tank.width || 64, tank.height || 64,
-                              mine.x, mine.y, 32, 32)) {
+        if (
+          this.checkOverlap(
+            tank.x,
+            tank.y,
+            tank.width || 64,
+            tank.height || 64,
+            mine.x,
+            mine.y,
+            32,
+            32
+          )
+        ) {
           mine.alive = false;
-          this.particles.createExplosion(mine.x + 16, mine.y + 16, '#ff4800', 20);
+          this.particles.createExplosion(
+            mine.x + 16,
+            mine.y + 16,
+            '#ff4800',
+            20
+          );
           this.audioEngine.playSfx('explosion_big');
           if (tank.isPlayer && !tank.hasShield && !tank.isInvulnerable) {
             // 地雷傷害玩家
-            this.damagePlayer(tank, tank.playerNum === 1 ? 8 * this.tileSize : 16 * this.tileSize, 22 * this.tileSize);
+            this.damagePlayer(
+              tank,
+              tank.playerNum === 1 ? 8 * this.tileSize : 16 * this.tileSize,
+              22 * this.tileSize
+            );
           } else if (!tank.isPlayer) {
             tank.alive = false;
             this.score += 100;
-            this.enemiesOnField = this.enemiesOnField.filter(e => e.alive);
+            this.enemiesOnField = this.enemiesOnField.filter((e) => e.alive);
             this.enemiesRemaining = Math.max(0, this.enemiesRemaining - 1);
           }
           this.mines.splice(i, 1);
@@ -652,11 +926,22 @@ export class GameEngine {
     }
 
     // 4d. 道具拾取判斷 (PowerUps)
-    [this.player1, this.player2].forEach(p => {
+    [this.player1, this.player2].forEach((p) => {
       if (!p || !p.alive) return;
       for (let i = this.powerUps.length - 1; i >= 0; i--) {
         const item = this.powerUps[i];
-        if (this.checkOverlap(p.x, p.y, p.width || 64, p.height || 64, item.x, item.y, item.width || 64, item.height || 64)) {
+        if (
+          this.checkOverlap(
+            p.x,
+            p.y,
+            p.width || 64,
+            p.height || 64,
+            item.x,
+            item.y,
+            item.width || 64,
+            item.height || 64
+          )
+        ) {
           this.applyPowerUp(p, item.type);
           this.powerUps.splice(i, 1);
           this.audioEngine.playSfx('menu_start'); // 或者如果有 powerup 音效
@@ -667,9 +952,14 @@ export class GameEngine {
     // 5. Boss AI (Boss Battle)
     if (this.boss && this.boss.alive && !this.boss.isFrozen) {
       const bulletCountBefore = this.bullets.length;
-      this.boss.update(this.player1, this.player2, this.bullets, this.particles);
+      this.boss.update(
+        this.player1,
+        this.player2,
+        this.bullets,
+        this.particles
+      );
       if (this.bullets.length > bulletCountBefore) {
-        this.audioEngine.playSfx("shoot_laser");
+        this.audioEngine.playSfx('shoot_laser');
       }
     }
 
@@ -688,30 +978,41 @@ export class GameEngine {
       const subC = Math.floor(b.x / this.subTileSize);
       const subR = Math.floor(b.y / this.subTileSize);
 
-      if (subR >= 0 && subR < subMapRows && subC >= 0 && subC < subMapRows && this.subMap && this.subMap[subR]) {
+      if (
+        subR >= 0 &&
+        subR < subMapRows &&
+        subC >= 0 &&
+        subC < subMapRows &&
+        this.subMap &&
+        this.subMap[subR]
+      ) {
         const subTile = this.subMap[subR][subC];
 
         if (subTile === TILE.BRICK) {
           this.subMap[subR][subC] = TILE.EMPTY;
           b.alive = false;
           this.particles.createExplosion(b.x, b.y, '#d84315', 6);
-          this.audioEngine.playSfx("hit_brick");
+          this.audioEngine.playSfx('hit_brick');
           this.bullets.splice(i, 1);
           continue;
         } else if (subTile === TILE.STEEL) {
-          if (b.weaponType === 'laser' || b.weaponType === 'ap' || this.weaponsManager.isActive(12)) {
+          if (
+            b.weaponType === 'laser' ||
+            b.weaponType === 'ap' ||
+            this.weaponsManager.isActive(12)
+          ) {
             this.subMap[subR][subC] = TILE.EMPTY;
           }
           b.alive = false;
           this.particles.createExplosion(b.x, b.y, '#90a4ae', 6);
-          this.audioEngine.playSfx("hit_steel");
+          this.audioEngine.playSfx('hit_steel');
           this.bullets.splice(i, 1);
           continue;
         } else if (subTile === TILE.BASE) {
           if (this.eagleBase) this.eagleBase.alive = false;
           b.alive = false;
           this.particles.createExplosion(b.x, b.y, '#ff1744', 30);
-          this.audioEngine.playSfx("explosion_base");
+          this.audioEngine.playSfx('explosion_base');
           this.triggerScreenShake();
           this.gameOver();
           break;
@@ -720,7 +1021,20 @@ export class GameEngine {
 
       // 子彈擊中對象
       if (b.isPlayer) {
-        if (this.boss && this.boss.alive && this.checkOverlap(b.x - 3, b.y - 3, 6, 6, this.boss.x, this.boss.y, 96, 96)) {
+        if (
+          this.boss &&
+          this.boss.alive &&
+          this.checkOverlap(
+            b.x - 3,
+            b.y - 3,
+            6,
+            6,
+            this.boss.x,
+            this.boss.y,
+            96,
+            96
+          )
+        ) {
           b.alive = false;
           this.boss.hp--;
           this.particles.createExplosion(b.x, b.y, '#ff9800', 8);
@@ -729,8 +1043,13 @@ export class GameEngine {
             this.boss.alive = false;
             this.score += 5000;
             this.enemiesRemaining = 0;
-            this.particles.createExplosion(this.boss.x + 48, this.boss.y + 48, '#ff3d00', 40);
-            this.audioEngine.playSfx("explosion_big");
+            this.particles.createExplosion(
+              this.boss.x + 48,
+              this.boss.y + 48,
+              '#ff3d00',
+              40
+            );
+            this.audioEngine.playSfx('explosion_big');
             this.triggerScreenShake();
             this.victory();
           }
@@ -740,7 +1059,19 @@ export class GameEngine {
 
         for (let j = this.enemiesOnField.length - 1; j >= 0; j--) {
           const enemy = this.enemiesOnField[j];
-          if (enemy.alive && this.checkOverlap(b.x - 3, b.y - 3, 6, 6, enemy.x, enemy.y, enemy.width || 64, enemy.height || 64)) {
+          if (
+            enemy.alive &&
+            this.checkOverlap(
+              b.x - 3,
+              b.y - 3,
+              6,
+              6,
+              enemy.x,
+              enemy.y,
+              enemy.width || 64,
+              enemy.height || 64
+            )
+          ) {
             b.alive = false;
             enemy.hp--;
             this.particles.createExplosion(b.x, b.y, '#ff3d00', 8);
@@ -749,19 +1080,33 @@ export class GameEngine {
               enemy.alive = false;
               this.score += 200;
 
-              const killer = b.shooterPlayerNum === 2 ? this.stageKillsP2 : this.stageKillsP1;
-              if (killer && killer[enemy.enemyType] !== undefined) killer[enemy.enemyType]++;
+              const killer =
+                b.shooterPlayerNum === 2
+                  ? this.stageKillsP2
+                  : this.stageKillsP1;
+              if (killer && killer[enemy.enemyType] !== undefined)
+                killer[enemy.enemyType]++;
 
               // 15% 機率掉落道具
               if (Math.random() < 0.15) {
-                const types = ['star', 'shield', 'freeze', 'bomb', 'clock', 'base_wall', 'life', 'laser', 'coin'];
+                const types = [
+                  'star',
+                  'shield',
+                  'freeze',
+                  'bomb',
+                  'clock',
+                  'base_wall',
+                  'life',
+                  'laser',
+                  'coin',
+                ];
                 const type = types[Math.floor(Math.random() * types.length)];
                 this.powerUps.push(new PowerUpItem(enemy.x, enemy.y, type));
               }
 
               this.enemiesOnField.splice(j, 1);
               this.enemiesRemaining--;
-              this.audioEngine.playSfx("explosion_tank");
+              this.audioEngine.playSfx('explosion_tank');
             }
             this.bullets.splice(i, 1);
             break;
@@ -769,15 +1114,32 @@ export class GameEngine {
         }
       } else {
         // 敵彈打玩家
-        [this.player1, this.player2].forEach(p => {
-          if (p && p.alive && this.checkOverlap(b.x - 3, b.y - 3, 6, 6, p.x, p.y, p.width || 64, p.height || 64)) {
+        [this.player1, this.player2].forEach((p) => {
+          if (
+            p &&
+            p.alive &&
+            this.checkOverlap(
+              b.x - 3,
+              b.y - 3,
+              6,
+              6,
+              p.x,
+              p.y,
+              p.width || 64,
+              p.height || 64
+            )
+          ) {
             b.alive = false;
             if (p.isInvulnerable || p.hasShield) {
-              this.audioEngine.playSfx("hit_steel");
+              this.audioEngine.playSfx('hit_steel');
             } else {
               this.particles.createExplosion(p.x + 12, p.y + 12, '#ff1744', 20);
-              this.audioEngine.playSfx("explosion_tank");
-              this.damagePlayer(p, p.playerNum === 1 ? 21 * this.tileSize : 29 * this.tileSize, 37 * this.tileSize);
+              this.audioEngine.playSfx('explosion_tank');
+              this.damagePlayer(
+                p,
+                p.playerNum === 1 ? 21 * this.tileSize : 29 * this.tileSize,
+                37 * this.tileSize
+              );
             }
           }
         });
@@ -788,7 +1150,11 @@ export class GameEngine {
     this.particles.update();
 
     // 8. 勝利條件判斷
-    if (this.enemiesRemaining <= 0 && this.enemiesOnField.length === 0 && (!this.boss || !this.boss.alive)) {
+    if (
+      this.enemiesRemaining <= 0 &&
+      this.enemiesOnField.length === 0 &&
+      (!this.boss || !this.boss.alive)
+    ) {
       this.victory();
     }
 
@@ -801,7 +1167,7 @@ export class GameEngine {
         lives2: this.lives2,
         enemiesLeft: Math.max(0, this.enemiesRemaining),
         bossHp: this.boss ? this.boss.hp : 0,
-        bossMaxHp: this.boss ? this.boss.maxHp : 0
+        bossMaxHp: this.boss ? this.boss.maxHp : 0,
       });
     }
   }
@@ -812,7 +1178,12 @@ export class GameEngine {
     const w = (entity && entity.width) || this.tileSize;
     const h = (entity && entity.height) || this.tileSize;
 
-    if (x < 0 || x + w > gridCols * this.tileSize || y < 0 || y + h > gridCols * this.tileSize) {
+    if (
+      x < 0 ||
+      x + w > gridCols * this.tileSize ||
+      y < 0 ||
+      y + h > gridCols * this.tileSize
+    ) {
       return false;
     }
 
@@ -823,9 +1194,21 @@ export class GameEngine {
 
     for (let r = subR1; r <= subR2; r++) {
       for (let c = subC1; c <= subC2; c++) {
-        if (r >= 0 && r < subMapRows && c >= 0 && c < subMapRows && this.subMap && this.subMap[r]) {
+        if (
+          r >= 0 &&
+          r < subMapRows &&
+          c >= 0 &&
+          c < subMapRows &&
+          this.subMap &&
+          this.subMap[r]
+        ) {
           const t = this.subMap[r][c];
-          if (t === TILE.BRICK || t === TILE.STEEL || t === TILE.WATER || t === TILE.BASE) {
+          if (
+            t === TILE.BRICK ||
+            t === TILE.STEEL ||
+            t === TILE.WATER ||
+            t === TILE.BASE
+          ) {
             return false;
           }
         }
@@ -846,26 +1229,39 @@ export class GameEngine {
       player.hasShield = true;
       player.shieldTimer = 600; // 10 秒
     } else if (type === 'freeze' || type === 'clock') {
-      this.enemiesOnField.forEach(e => { e.isFrozen = true; e.freezeTimer = 600; });
+      this.enemiesOnField.forEach((e) => {
+        e.isFrozen = true;
+        e.freezeTimer = 600;
+      });
     } else if (type === 'bomb') {
-      this.enemiesOnField.forEach(e => {
+      this.enemiesOnField.forEach((e) => {
         this.particles.createExplosion(e.x + 32, e.y + 32, '#ff3d00', 20);
         e.alive = false;
         this.score += 200;
         this.enemiesRemaining = Math.max(0, this.enemiesRemaining - 1);
       });
       this.enemiesOnField = [];
-      this.audioEngine.playSfx("explosion_big");
+      this.audioEngine.playSfx('explosion_big');
     } else if (type === 'base_wall') {
       // 將基地外圍變為鋼鐵
-      const coords = [[23,11],[23,12],[23,13],[23,14],[24,11],[24,14],[25,11],[25,14]];
+      const coords = [
+        [23, 11],
+        [23, 12],
+        [23, 13],
+        [23, 14],
+        [24, 11],
+        [24, 14],
+        [25, 11],
+        [25, 14],
+      ];
       coords.forEach(([r, c]) => {
         if (this.subMap[r] && this.subMap[r][c] !== undefined) {
           this.subMap[r][c] = 2; // TILE.STEEL
         }
       });
     } else if (type === 'life') {
-      if (player.playerNum === 1) this.lives1++; else this.lives2++;
+      if (player.playerNum === 1) this.lives1++;
+      else this.lives2++;
     } else if (type === 'laser') {
       this.weaponsManager.selectWeaponIndex(4); // wheelWeapons[4] = 貫穿雷射
       if (this.uiCallbacks.onWeaponChange) this.uiCallbacks.onWeaponChange(4);
@@ -877,13 +1273,13 @@ export class GameEngine {
   victory() {
     this.state = 'VICTORY';
     this.audioEngine.stopBgm();
-    this.audioEngine.playSfx("stage_clear");
+    this.audioEngine.playSfx('stage_clear');
     if (this.uiCallbacks.onStageClear) {
       this.uiCallbacks.onStageClear({
         stage: this.levelManager.currentStage,
         score: this.score,
         killsP1: this.stageKillsP1,
-        killsP2: this.stageKillsP2
+        killsP2: this.stageKillsP2,
       });
     }
   }
@@ -891,13 +1287,13 @@ export class GameEngine {
   gameOver() {
     this.state = 'GAME_OVER';
     this.audioEngine.stopBgm();
-    this.audioEngine.playSfx("game_over");
+    this.audioEngine.playSfx('game_over');
     if (this.uiCallbacks.onGameOver) {
       this.uiCallbacks.onGameOver({
         stage: this.levelManager.currentStage,
         score: this.score,
         killsP1: this.stageKillsP1,
-        killsP2: this.stageKillsP2
+        killsP2: this.stageKillsP2,
       });
     }
   }
@@ -917,10 +1313,22 @@ export class GameEngine {
     const subMapRows = this.subMap ? this.subMap.length : 104;
 
     // 只繪製攝影機視野內（含 1 格緩衝）的地形範圍，避免每幀掃描整張大地圖
-    const viewCol1 = Math.max(0, Math.floor(this.camera.x / this.subTileSize) - 1);
-    const viewCol2 = Math.min(subMapRows, Math.ceil((this.camera.x + this.canvas.width) / this.subTileSize) + 1);
-    const viewRow1 = Math.max(0, Math.floor(this.camera.y / this.subTileSize) - 1);
-    const viewRow2 = Math.min(subMapRows, Math.ceil((this.camera.y + this.canvas.height) / this.subTileSize) + 1);
+    const viewCol1 = Math.max(
+      0,
+      Math.floor(this.camera.x / this.subTileSize) - 1
+    );
+    const viewCol2 = Math.min(
+      subMapRows,
+      Math.ceil((this.camera.x + this.canvas.width) / this.subTileSize) + 1
+    );
+    const viewRow1 = Math.max(
+      0,
+      Math.floor(this.camera.y / this.subTileSize) - 1
+    );
+    const viewRow2 = Math.min(
+      subMapRows,
+      Math.ceil((this.camera.y + this.canvas.height) / this.subTileSize) + 1
+    );
 
     // 1. 繪製 52x52 地形與多元元素 (SAND, BOOST, LAVA, PORTAL)
     for (let r = viewRow1; r < viewRow2; r++) {
@@ -975,15 +1383,25 @@ export class GameEngine {
     if (this.player2 && this.player2.alive) this.player2.render(this.ctx);
 
     // 4.5 繪製 道具與場景物件
-    this.powerUps.forEach(item => { if (item.alive) item.render(this.ctx); });
-    this.mines.forEach(mine => { if (mine.alive) mine.render(this.ctx); });
-    this.props.forEach(prop => { if (prop.alive) prop.render(this.ctx); });
+    this.powerUps.forEach((item) => {
+      if (item.alive) item.render(this.ctx);
+    });
+    this.mines.forEach((mine) => {
+      if (mine.alive) mine.render(this.ctx);
+    });
+    this.props.forEach((prop) => {
+      if (prop.alive) prop.render(this.ctx);
+    });
 
     // 5. 繪製 敵軍
-    this.enemiesOnField.forEach(e => { if (e.alive) e.render(this.ctx); });
+    this.enemiesOnField.forEach((e) => {
+      if (e.alive) e.render(this.ctx);
+    });
 
     // 6. 繪製 子彈
-    this.bullets.forEach(b => { if (b.alive) b.render(this.ctx); });
+    this.bullets.forEach((b) => {
+      if (b.alive) b.render(this.ctx);
+    });
 
     // 7. 繪製 粒子系統與天氣
     this.particles.render(this.ctx);
@@ -994,9 +1412,32 @@ export class GameEngine {
       for (let c = viewCol1; c < viewCol2; c++) {
         if (this.subMap[r][c] === TILE.TREES) {
           this.ctx.fillStyle = 'rgba(46, 125, 50, 0.85)';
-          this.ctx.fillRect(c * this.subTileSize, r * this.subTileSize, this.subTileSize, this.subTileSize);
+          this.ctx.fillRect(
+            c * this.subTileSize,
+            r * this.subTileSize,
+            this.subTileSize,
+            this.subTileSize
+          );
         }
       }
+    }
+
+    // 9. 繪製碰撞框 (Debug)
+    if (this.debugHitbox) {
+      this.ctx.lineWidth = 2;
+      const drawBox = (obj, color) => {
+        if (!obj || !obj.alive) return;
+        this.ctx.strokeStyle = color;
+        this.ctx.strokeRect(obj.x, obj.y, obj.width || 64, obj.height || 64);
+      };
+      if (this.player1) drawBox(this.player1, '#00ff00');
+      if (this.player2) drawBox(this.player2, '#00ff00');
+      if (this.boss) drawBox(this.boss, '#ff00ff');
+      this.enemiesOnField.forEach((e) => drawBox(e, '#ff0000'));
+      this.bullets.forEach((b) => drawBox(b, '#ffff00'));
+      this.powerUps.forEach((p) => drawBox(p, '#00ffff'));
+      this.props.forEach((p) => drawBox(p, '#ff8800'));
+      this.mines.forEach((m) => drawBox(m, '#ff0088'));
     }
 
     this.ctx.restore();

@@ -9,10 +9,14 @@ import { WeaponsManager } from './game/WeaponsSystem.js';
 import { GameEngine } from './game/Engine.js';
 import { MapDataGenerator, MAP_SIZE, TILE } from './game/MapData.js';
 import { StorageManager } from './game/StorageManager.js';
+import Stats from 'stats.js';
+import GUI from 'lil-gui';
+import VConsole from 'vconsole';
+import nipplejs from 'nipplejs';
 
 document.addEventListener('DOMContentLoaded', () => {
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js').catch(err => {
+    navigator.serviceWorker.register('./sw.js').catch((err) => {
       console.log('SW register failed:', err);
     });
   }
@@ -53,14 +57,18 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnEditorClose = document.getElementById('btn-editor-close');
 
   // 全新 武器輪盤與戰術抽屜選單 DOM
-  const btnToggleWeaponWheel = document.getElementById('btn-toggle-weapon-wheel');
+  const btnToggleWeaponWheel = document.getElementById(
+    'btn-toggle-weapon-wheel'
+  );
   const weaponWheelOverlay = document.getElementById('weapon-wheel-overlay');
   const radialWheelItems = document.getElementById('radial-wheel-items');
   const wheelSelectedName = document.getElementById('wheel-selected-name');
   const wheelSelectedDesc = document.getElementById('wheel-selected-desc');
 
   const btnToggleSettings = document.getElementById('btn-toggle-settings');
-  const settingsDrawerOverlay = document.getElementById('settings-drawer-overlay');
+  const settingsDrawerOverlay = document.getElementById(
+    'settings-drawer-overlay'
+  );
   const btnCloseDrawer = document.getElementById('btn-close-drawer');
   const drawerBackdrop = document.getElementById('drawer-backdrop');
 
@@ -88,6 +96,55 @@ document.addEventListener('DOMContentLoaded', () => {
   const levelManager = new LevelManager();
   const weaponsManager = new WeaponsManager();
 
+  const stats = new Stats();
+  stats.showPanel(0); // 0: fps, 1: ms, 2: mb, 3+: custom
+  stats.dom.style.position = 'absolute';
+  stats.dom.style.right = '0px';
+  stats.dom.style.top = '0px';
+  stats.dom.style.left = 'auto';
+  document.body.appendChild(stats.dom);
+
+  const gui = new GUI({ title: '遊戲參數微調 (Debug)' });
+  const debugParams = {
+    cameraMode: '2D',
+    weather: 'none',
+    difficulty: 'normal',
+    debugHitbox: false,
+  };
+
+  gui
+    .add(debugParams, 'cameraMode', ['2D', '2.5D'])
+    .name('攝影機視角')
+    .onChange((val) => {
+      gameEngine.setCameraPerspectiveMode(val);
+    });
+  gui
+    .add(debugParams, 'weather', ['none', 'rain', 'snow', 'night'])
+    .name('天氣特效')
+    .onChange((val) => {
+      gameEngine.setWeatherMode(val);
+    });
+  gui
+    .add(debugParams, 'difficulty', ['easy', 'normal', 'hard', 'hell'])
+    .name('難易度')
+    .onChange((val) => {
+      gameEngine.setDifficulty(val);
+    });
+  gui
+    .add(debugParams, 'debugHitbox')
+    .name('顯示碰撞框')
+    .onChange((val) => {
+      gameEngine.debugHitbox = val;
+    })
+    .listen();
+
+  // 讓內部狀態的變更（如熱鍵 ~ 觸發）能同步回 GUI 面板
+  setInterval(() => {
+    if (debugParams.debugHitbox !== gameEngine.debugHitbox) {
+      debugParams.debugHitbox = gameEngine.debugHitbox;
+    }
+  }, 100);
+
   const gameEngine = new GameEngine(
     gameCanvas,
     levelManager,
@@ -97,8 +154,13 @@ document.addEventListener('DOMContentLoaded', () => {
       onStatusUpdate: (status) => {
         const stageFormatted = String(status.stage).padStart(3, '0');
         if (uiStageText) uiStageText.innerText = `${stageFormatted} / 200`;
-        if (uiScoreText) uiScoreText.innerText = String(status.score).padStart(7, '0');
-        if (uiEnemiesLeftText) uiEnemiesLeftText.innerText = String(status.enemiesLeft).padStart(2, '0');
+        if (uiScoreText)
+          uiScoreText.innerText = String(status.score).padStart(7, '0');
+        if (uiEnemiesLeftText)
+          uiEnemiesLeftText.innerText = String(status.enemiesLeft).padStart(
+            2,
+            '0'
+          );
         renderLives(status.lives, status.lives2);
         StorageManager.updateHighScore(status.score);
       },
@@ -110,13 +172,18 @@ document.addEventListener('DOMContentLoaded', () => {
       },
       onWeaponChange: (idx) => {
         updateWeaponSelectionUI(idx);
-      }
+      },
     }
   );
 
   // 除錯用鉤子：僅在開發模式暴露引擎內部狀態，供 .claude/skills/run-tank-front-1988 的 driver 讀取（生產打包 tree-shake 掉此區塊）
   if (import.meta.env.DEV) {
-    window.__TANK_DEBUG__ = { gameEngine, levelManager, audioEngine, weaponsManager };
+    window.__TANK_DEBUG__ = {
+      gameEngine,
+      levelManager,
+      audioEngine,
+      weaponsManager,
+    };
   }
 
   // isSoundOn 必須在 onToggleMute 回調前宣告，供閉包捕捉
@@ -135,11 +202,17 @@ document.addEventListener('DOMContentLoaded', () => {
   gameEngine.onToggleMute = () => {
     isSoundOn = !isSoundOn;
     if (isSoundOn) {
-      if (btnToggleSound) { btnToggleSound.classList.add('active'); btnToggleSound.innerText = '🔊 音效開啟'; }
+      if (btnToggleSound) {
+        btnToggleSound.classList.add('active');
+        btnToggleSound.innerText = '🔊 音效開啟';
+      }
       audioEngine.setSfxVolume(1.0);
       audioEngine.setBgmVolume(0.8);
     } else {
-      if (btnToggleSound) { btnToggleSound.classList.remove('active'); btnToggleSound.innerText = '🔇 音效靜音'; }
+      if (btnToggleSound) {
+        btnToggleSound.classList.remove('active');
+        btnToggleSound.innerText = '🔇 音效靜音';
+      }
       audioEngine.setSfxVolume(0);
       audioEngine.setBgmVolume(0);
     }
@@ -148,18 +221,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ===== KeyBinding Manager =====
   const DEFAULT_BINDINGS = {
-    shoot:         { label: '射擊',         code: 'Space',      displayKey: 'SPACE' },
-    shootAlt:      { label: '射擊 (備用)',    code: 'KeyZ',       displayKey: 'Z' },
-    specialWeapon: { label: '特殊武器',       code: 'KeyE',       displayKey: 'E' },
-    specialTech:   { label: '特殊技',         code: 'KeyF',       displayKey: 'F' },
-    weaponWheel:   { label: '武器輪盤',       code: 'KeyQ',       displayKey: 'Q' },
-    dash:          { label: '疾衝 Dash',     code: 'ShiftLeft',  displayKey: 'SHIFT' },
-    pause:         { label: '暫停遊戲',       code: 'KeyP',       displayKey: 'P' },
-    mute:          { label: '靜音切換',       code: 'KeyM',       displayKey: 'M' },
-    moveUp:        { label: '向上移動',       code: 'KeyW',       displayKey: 'W' },
-    moveDown:      { label: '向下移動',       code: 'KeyS',       displayKey: 'S' },
-    moveLeft:      { label: '向左移動',       code: 'KeyA',       displayKey: 'A' },
-    moveRight:     { label: '向右移動',       code: 'KeyD',       displayKey: 'D' },
+    shoot: { label: '射擊', code: 'Space', displayKey: 'SPACE' },
+    shootAlt: { label: '射擊 (備用)', code: 'KeyZ', displayKey: 'Z' },
+    specialWeapon: { label: '特殊武器', code: 'KeyE', displayKey: 'E' },
+    specialTech: { label: '特殊技', code: 'KeyF', displayKey: 'F' },
+    weaponWheel: { label: '武器輪盤', code: 'KeyQ', displayKey: 'Q' },
+    dash: { label: '疾衝 Dash', code: 'ShiftLeft', displayKey: 'SHIFT' },
+    pause: { label: '暫停遊戲', code: 'KeyP', displayKey: 'P' },
+    mute: { label: '靜音切換', code: 'KeyM', displayKey: 'M' },
+    moveUp: { label: '向上移動', code: 'KeyW', displayKey: 'W' },
+    moveDown: { label: '向下移動', code: 'KeyS', displayKey: 'S' },
+    moveLeft: { label: '向左移動', code: 'KeyA', displayKey: 'A' },
+    moveRight: { label: '向右移動', code: 'KeyD', displayKey: 'D' },
   };
 
   const STORAGE_KEY = 'tankgame_keybindings';
@@ -170,26 +243,30 @@ document.addEventListener('DOMContentLoaded', () => {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
-        Object.keys(DEFAULT_BINDINGS).forEach(key => {
+        Object.keys(DEFAULT_BINDINGS).forEach((key) => {
           if (parsed[key]) {
             currentBindings[key] = { ...DEFAULT_BINDINGS[key], ...parsed[key] };
           }
         });
       }
-    } catch (e) { /* 忽略儲存錯誤 */ }
+    } catch (e) {
+      /* 忽略儲存錯誤 */
+    }
     applyBindingsToEngine();
   }
 
   function saveBindingsToStorage() {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(currentBindings));
-    } catch (e) { /* 忽略儲存錯誤 */ }
+    } catch (e) {
+      /* 忽略儲存錯誤 */
+    }
     applyBindingsToEngine();
   }
 
   function applyBindingsToEngine() {
     // 將自訂綁定同步到 gameEngine.keyBindings
-    Object.keys(currentBindings).forEach(key => {
+    Object.keys(currentBindings).forEach((key) => {
       if (gameEngine.keyBindings.hasOwnProperty(key)) {
         gameEngine.keyBindings[key] = currentBindings[key].code;
       }
@@ -223,11 +300,20 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       // 更新綁定
       const displayMap = {
-        'Space': 'SPACE', 'ShiftLeft': 'L-SHIFT', 'ShiftRight': 'R-SHIFT',
-        'ControlLeft': 'L-CTRL', 'ControlRight': 'R-CTRL',
-        'AltLeft': 'L-ALT', 'AltRight': 'R-ALT',
-        'Enter': 'ENTER', 'Backspace': 'BKSP', 'Tab': 'TAB',
-        'ArrowUp': '↑', 'ArrowDown': '↓', 'ArrowLeft': '←', 'ArrowRight': '→',
+        Space: 'SPACE',
+        ShiftLeft: 'L-SHIFT',
+        ShiftRight: 'R-SHIFT',
+        ControlLeft: 'L-CTRL',
+        ControlRight: 'R-CTRL',
+        AltLeft: 'L-ALT',
+        AltRight: 'R-ALT',
+        Enter: 'ENTER',
+        Backspace: 'BKSP',
+        Tab: 'TAB',
+        ArrowUp: '↑',
+        ArrowDown: '↓',
+        ArrowLeft: '←',
+        ArrowRight: '→',
       };
       let displayKey = displayMap[e.code] || e.key.toUpperCase();
       if (e.code.startsWith('Digit')) displayKey = e.code.replace('Digit', '');
@@ -236,7 +322,7 @@ document.addEventListener('DOMContentLoaded', () => {
       currentBindings[actionKey] = {
         ...currentBindings[actionKey],
         code: e.code,
-        displayKey
+        displayKey,
       };
 
       btnEl.classList.remove('key-listening');
@@ -255,7 +341,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const container = document.getElementById('keybind-list');
     if (!container) return;
     container.innerHTML = '';
-    Object.keys(DEFAULT_BINDINGS).forEach(key => {
+    Object.keys(DEFAULT_BINDINGS).forEach((key) => {
       const binding = currentBindings[key];
       const row = document.createElement('div');
       row.className = 'keybind-row';
@@ -272,7 +358,9 @@ document.addEventListener('DOMContentLoaded', () => {
       const rebindBtn = document.createElement('button');
       rebindBtn.className = 'keybind-btn';
       rebindBtn.textContent = '重新綁定';
-      rebindBtn.addEventListener('click', () => startListeningForKey(key, rebindBtn));
+      rebindBtn.addEventListener('click', () =>
+        startListeningForKey(key, rebindBtn)
+      );
 
       row.appendChild(actionSpan);
       row.appendChild(keyBadge);
@@ -288,7 +376,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // 恢復預設按鈕
   const btnResetBindings = document.getElementById('btn-reset-bindings');
-  if (btnResetBindings) btnResetBindings.addEventListener('click', resetBindingsToDefault);
+  if (btnResetBindings)
+    btnResetBindings.addEventListener('click', resetBindingsToDefault);
 
   function renderLives(lives1 = 3, lives2 = 3) {
     if (uiLivesContainer) {
@@ -313,17 +402,17 @@ document.addEventListener('DOMContentLoaded', () => {
   const wheelItems = document.querySelectorAll('.wheel-item'); // 快取一次，避免每次切換武器都重新查詢 DOM
   function updateWeaponSelectionUI(idx) {
     const selected = weaponsManager.selectWeaponIndex(idx);
-    audioEngine.playSfx("menu_click");
+    audioEngine.playSfx('menu_click');
 
     // 更新底部快捷列
-    hotbarSlots.forEach(slot => {
+    hotbarSlots.forEach((slot) => {
       const slotIdx = parseInt(slot.getAttribute('data-index'), 10);
       if (slotIdx === idx) slot.classList.add('active');
       else slot.classList.remove('active');
     });
 
     // 更新 360 度輪盤
-    wheelItems.forEach(item => {
+    wheelItems.forEach((item) => {
       const itemIdx = parseInt(item.getAttribute('data-index'), 10);
       if (itemIdx === idx) item.classList.add('selected');
       else item.classList.remove('selected');
@@ -334,7 +423,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // 快捷列按鈕點擊
-  hotbarSlots.forEach(slot => {
+  hotbarSlots.forEach((slot) => {
     slot.addEventListener('click', () => {
       const idx = parseInt(slot.getAttribute('data-index'), 10);
       updateWeaponSelectionUI(idx);
@@ -342,7 +431,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // 圓形輪盤按鈕點擊
-  wheelItems.forEach(item => {
+  wheelItems.forEach((item) => {
     item.addEventListener('click', () => {
       const idx = parseInt(item.getAttribute('data-index'), 10);
       updateWeaponSelectionUI(idx);
@@ -350,7 +439,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   function toggleWeaponWheel(forceShow) {
-    audioEngine.playSfx("menu_click");
+    audioEngine.playSfx('menu_click');
     if (forceShow !== undefined) {
       if (forceShow) weaponWheelOverlay.classList.remove('hidden');
       else weaponWheelOverlay.classList.add('hidden');
@@ -359,11 +448,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  if (btnToggleWeaponWheel) btnToggleWeaponWheel.addEventListener('click', () => toggleWeaponWheel());
+  if (btnToggleWeaponWheel)
+    btnToggleWeaponWheel.addEventListener('click', () => toggleWeaponWheel());
 
   // 2. 戰術抽屜選單 ESC 控制器
   function toggleSettingsDrawer(forceShow) {
-    audioEngine.playSfx("menu_click");
+    audioEngine.playSfx('menu_click');
     if (forceShow !== undefined) {
       if (forceShow) settingsDrawerOverlay.classList.remove('hidden');
       else settingsDrawerOverlay.classList.add('hidden');
@@ -372,17 +462,20 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  if (btnToggleSettings) btnToggleSettings.addEventListener('click', () => toggleSettingsDrawer());
-  if (btnCloseDrawer) btnCloseDrawer.addEventListener('click', () => toggleSettingsDrawer(false));
-  if (drawerBackdrop) drawerBackdrop.addEventListener('click', () => toggleSettingsDrawer(false));
+  if (btnToggleSettings)
+    btnToggleSettings.addEventListener('click', () => toggleSettingsDrawer());
+  if (btnCloseDrawer)
+    btnCloseDrawer.addEventListener('click', () => toggleSettingsDrawer(false));
+  if (drawerBackdrop)
+    drawerBackdrop.addEventListener('click', () => toggleSettingsDrawer(false));
 
   // 通用「切換按鈕群組」綁定器：點擊時互斥切換 .active 並回呼選中值
   function bindToggleGroup(items, onSelect) {
     items.forEach(({ btn, value }) => {
       if (!btn) return;
       btn.addEventListener('click', () => {
-        audioEngine.playSfx("menu_click");
-        items.forEach(it => it.btn && it.btn.classList.remove('active'));
+        audioEngine.playSfx('menu_click');
+        items.forEach((it) => it.btn && it.btn.classList.remove('active'));
         btn.classList.add('active');
         onSelect(value);
       });
@@ -390,60 +483,79 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // 視角切換
-  bindToggleGroup([
-    { btn: btnPerspective2d, value: '2D' },
-    { btn: btnPerspective25d, value: '2.5D' }
-  ], mode => gameEngine.setCameraPerspectiveMode(mode));
+  bindToggleGroup(
+    [
+      { btn: btnPerspective2d, value: '2D' },
+      { btn: btnPerspective25d, value: '2.5D' },
+    ],
+    (mode) => gameEngine.setCameraPerspectiveMode(mode)
+  );
 
   // 天氣模式
-  bindToggleGroup([
-    { btn: btnWeatherNone, value: 'none' },
-    { btn: btnWeatherRain, value: 'rain' },
-    { btn: btnWeatherSnow, value: 'snow' },
-    { btn: btnWeatherNight, value: 'night' }
-  ], mode => gameEngine.setWeatherMode(mode));
+  bindToggleGroup(
+    [
+      { btn: btnWeatherNone, value: 'none' },
+      { btn: btnWeatherRain, value: 'rain' },
+      { btn: btnWeatherSnow, value: 'snow' },
+      { btn: btnWeatherNight, value: 'night' },
+    ],
+    (mode) => gameEngine.setWeatherMode(mode)
+  );
 
   // 控制模式
-  bindToggleGroup([
-    { btn: btnControlMouse, value: 'mouse_keyboard' },
-    { btn: btnControlKeys, value: 'keyboard' }
-  ], mode => gameEngine.setControlMode(mode));
+  bindToggleGroup(
+    [
+      { btn: btnControlMouse, value: 'mouse_keyboard' },
+      { btn: btnControlKeys, value: 'keyboard' },
+    ],
+    (mode) => gameEngine.setControlMode(mode)
+  );
 
   // 難易度
-  bindToggleGroup([
-    { btn: btnDiffEasy, value: 'easy' },
-    { btn: btnDiffNormal, value: 'normal' },
-    { btn: btnDiffHard, value: 'hard' },
-    { btn: btnDiffHell, value: 'hell' }
-  ], diff => gameEngine.setDifficulty(diff));
+  bindToggleGroup(
+    [
+      { btn: btnDiffEasy, value: 'easy' },
+      { btn: btnDiffNormal, value: 'normal' },
+      { btn: btnDiffHard, value: 'hard' },
+      { btn: btnDiffHell, value: 'hell' },
+    ],
+    (diff) => gameEngine.setDifficulty(diff)
+  );
 
   // 1P / 2P 遊戲模式
-  bindToggleGroup([
-    { btn: btnMode1p, value: '1P' },
-    { btn: btnMode2p, value: '2P' }
-  ], mode => {
-    gameEngine.setGameMode(mode);
-    if (uiLivesP2Container) uiLivesP2Container.closest('.metric-group').style.display = mode === '2P' ? '' : 'none';
-  });
+  bindToggleGroup(
+    [
+      { btn: btnMode1p, value: '1P' },
+      { btn: btnMode2p, value: '2P' },
+    ],
+    (mode) => {
+      gameEngine.setGameMode(mode);
+      if (uiLivesP2Container)
+        uiLivesP2Container.closest('.metric-group').style.display =
+          mode === '2P' ? '' : 'none';
+    }
+  );
   // 預設為 1P，開場先隱藏 P2 生命 HUD（對齊 btn-mode-1p 的預設 active 狀態）
-  if (uiLivesP2Container) uiLivesP2Container.closest('.metric-group').style.display = 'none';
+  if (uiLivesP2Container)
+    uiLivesP2Container.closest('.metric-group').style.display = 'none';
 
   // 聲音開關（isSoundOn 已在上方宣告）
-  if (btnToggleSound) btnToggleSound.addEventListener('click', () => {
-    isSoundOn = !isSoundOn;
-    audioEngine.playSfx("menu_click");
-    if (isSoundOn) {
-      btnToggleSound.classList.add('active');
-      btnToggleSound.innerText = '🔊 音效開啟';
-      audioEngine.setSfxVolume(1.0);
-      audioEngine.setBgmVolume(0.8);
-    } else {
-      btnToggleSound.classList.remove('active');
-      btnToggleSound.innerText = '🔇 音效靜音';
-      audioEngine.setSfxVolume(0);
-      audioEngine.setBgmVolume(0);
-    }
-  });
+  if (btnToggleSound)
+    btnToggleSound.addEventListener('click', () => {
+      isSoundOn = !isSoundOn;
+      audioEngine.playSfx('menu_click');
+      if (isSoundOn) {
+        btnToggleSound.classList.add('active');
+        btnToggleSound.innerText = '🔊 音效開啟';
+        audioEngine.setSfxVolume(1.0);
+        audioEngine.setBgmVolume(0.8);
+      } else {
+        btnToggleSound.classList.remove('active');
+        btnToggleSound.innerText = '🔇 音效靜音';
+        audioEngine.setSfxVolume(0);
+        audioEngine.setBgmVolume(0);
+      }
+    });
 
   // 暫停 Overlay 按鈕
   const btnPauseResume = document.getElementById('btn-pause-resume');
@@ -456,26 +568,29 @@ document.addEventListener('DOMContentLoaded', () => {
   // 關卡預覽（先確保對應 JSON 區塊已快取，讓預覽與實際進場地圖一致）
   let previewStageNum = 1;
   async function updatePreview() {
-    if (previewStageLabel) previewStageLabel.innerText = `第 ${String(previewStageNum).padStart(3, '0')} 關`;
+    if (previewStageLabel)
+      previewStageLabel.innerText = `第 ${String(previewStageNum).padStart(3, '0')} 關`;
     await levelManager.preloadJSON(previewStageNum);
     levelManager.renderPreview(previewCanvas, previewStageNum);
   }
 
-  if (btnPrevStage) btnPrevStage.addEventListener('click', () => {
-    audioEngine.playSfx("menu_click");
-    previewStageNum = previewStageNum > 1 ? previewStageNum - 1 : 200;
-    updatePreview();
-  });
+  if (btnPrevStage)
+    btnPrevStage.addEventListener('click', () => {
+      audioEngine.playSfx('menu_click');
+      previewStageNum = previewStageNum > 1 ? previewStageNum - 1 : 200;
+      updatePreview();
+    });
 
-  if (btnNextStage) btnNextStage.addEventListener('click', () => {
-    audioEngine.playSfx("menu_click");
-    previewStageNum = previewStageNum < 200 ? previewStageNum + 1 : 1;
-    updatePreview();
-  });
+  if (btnNextStage)
+    btnNextStage.addEventListener('click', () => {
+      audioEngine.playSfx('menu_click');
+      previewStageNum = previewStageNum < 200 ? previewStageNum + 1 : 1;
+      updatePreview();
+    });
 
   // ===== 選擇關卡畫面 (1~200) =====
   function openStageSelect() {
-    audioEngine.playSfx("menu_click");
+    audioEngine.playSfx('menu_click');
     if (stageSelectGrid && !stageSelectGrid.children.length) {
       for (let i = 1; i <= 200; i++) {
         const cell = document.createElement('button');
@@ -493,10 +608,11 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   if (btnSelectStage) btnSelectStage.addEventListener('click', openStageSelect);
-  if (btnStageSelectClose) btnStageSelectClose.addEventListener('click', () => {
-    audioEngine.playSfx("menu_click");
-    if (stageSelectOverlay) stageSelectOverlay.classList.add('hidden');
-  });
+  if (btnStageSelectClose)
+    btnStageSelectClose.addEventListener('click', () => {
+      audioEngine.playSfx('menu_click');
+      if (stageSelectOverlay) stageSelectOverlay.classList.add('hidden');
+    });
 
   // ===== 地圖編輯器 (26x26 手繪地形，可儲存並直接試玩) =====
   const EDITOR_TILES = [
@@ -505,11 +621,11 @@ document.addEventListener('DOMContentLoaded', () => {
     { value: TILE.STEEL, label: '鋼板', color: '#78909c' },
     { value: TILE.WATER, label: '水域', color: '#00b0ff' },
     { value: TILE.TREES, label: '叢林', color: '#2e7d32' },
-    { value: TILE.ICE,   label: '冰地', color: '#80deea' },
-    { value: TILE.SAND,  label: '沙地', color: '#d4a373' },
+    { value: TILE.ICE, label: '冰地', color: '#80deea' },
+    { value: TILE.SAND, label: '沙地', color: '#d4a373' },
     { value: TILE.BOOST, label: '加速', color: '#00f5d4' },
-    { value: TILE.LAVA,  label: '熔岩', color: '#ff4800' },
-    { value: TILE.BASE,  label: '基地', color: '#ffb300' },
+    { value: TILE.LAVA, label: '熔岩', color: '#ff4800' },
+    { value: TILE.BASE, label: '基地', color: '#ffb300' },
   ];
 
   let editorGrid = null;
@@ -517,13 +633,22 @@ document.addEventListener('DOMContentLoaded', () => {
   let isPaintingEditor = false;
 
   function createEmptyEditorGrid() {
-    const grid = Array.from({ length: MAP_SIZE }, () => Array(MAP_SIZE).fill(TILE.EMPTY));
+    const grid = Array.from({ length: MAP_SIZE }, () =>
+      Array(MAP_SIZE).fill(TILE.EMPTY)
+    );
     // 預先放置鷹徽基地磚牆，對齊 Engine 固定出生座標 (12, 23)，與正式關卡生成邏輯一致
-    grid[24][12] = TILE.BRICK; grid[24][13] = TILE.BRICK;
-    grid[25][12] = TILE.BRICK; grid[25][13] = TILE.BASE;
-    grid[23][11] = TILE.BRICK; grid[23][12] = TILE.BRICK; grid[23][13] = TILE.BRICK; grid[23][14] = TILE.BRICK;
-    grid[24][11] = TILE.BRICK; grid[24][14] = TILE.BRICK;
-    grid[25][11] = TILE.BRICK; grid[25][14] = TILE.BRICK;
+    grid[24][12] = TILE.BRICK;
+    grid[24][13] = TILE.BRICK;
+    grid[25][12] = TILE.BRICK;
+    grid[25][13] = TILE.BASE;
+    grid[23][11] = TILE.BRICK;
+    grid[23][12] = TILE.BRICK;
+    grid[23][13] = TILE.BRICK;
+    grid[23][14] = TILE.BRICK;
+    grid[24][11] = TILE.BRICK;
+    grid[24][14] = TILE.BRICK;
+    grid[25][11] = TILE.BRICK;
+    grid[25][14] = TILE.BRICK;
     return grid;
   }
 
@@ -538,7 +663,7 @@ document.addEventListener('DOMContentLoaded', () => {
       for (let c = 0; c < MAP_SIZE; c++) {
         const tileVal = editorGrid[r][c];
         if (tileVal === TILE.EMPTY) continue;
-        const tileDef = EDITOR_TILES.find(t => t.value === tileVal);
+        const tileDef = EDITOR_TILES.find((t) => t.value === tileVal);
         if (tileDef) {
           ctx.fillStyle = tileDef.color;
           ctx.fillRect(c * cell, r * cell, cell - 1, cell - 1);
@@ -549,8 +674,10 @@ document.addEventListener('DOMContentLoaded', () => {
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.06)';
     ctx.beginPath();
     for (let i = 0; i <= MAP_SIZE; i++) {
-      ctx.moveTo(i * cell, 0); ctx.lineTo(i * cell, editorCanvas.height);
-      ctx.moveTo(0, i * cell); ctx.lineTo(editorCanvas.width, i * cell);
+      ctx.moveTo(i * cell, 0);
+      ctx.lineTo(i * cell, editorCanvas.height);
+      ctx.moveTo(0, i * cell);
+      ctx.lineTo(editorCanvas.width, i * cell);
     }
     ctx.stroke();
   }
@@ -574,7 +701,9 @@ document.addEventListener('DOMContentLoaded', () => {
       btn.textContent = t.label;
       btn.addEventListener('click', () => {
         selectedEditorTile = t.value;
-        editorPaletteRow.querySelectorAll('.editor-tile-btn').forEach(b => b.classList.remove('active'));
+        editorPaletteRow
+          .querySelectorAll('.editor-tile-btn')
+          .forEach((b) => b.classList.remove('active'));
         btn.classList.add('active');
       });
       editorPaletteRow.appendChild(btn);
@@ -582,7 +711,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function openMapEditor() {
-    audioEngine.playSfx("menu_click");
+    audioEngine.playSfx('menu_click');
     buildEditorPalette();
     editorGrid = StorageManager.loadCustomMap() || createEmptyEditorGrid();
     renderEditorCanvas();
@@ -590,63 +719,83 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   if (btnStageEditor) btnStageEditor.addEventListener('click', openMapEditor);
-  if (btnEditorClose) btnEditorClose.addEventListener('click', () => {
-    audioEngine.playSfx("menu_click");
-    if (mapEditorOverlay) mapEditorOverlay.classList.add('hidden');
-  });
+  if (btnEditorClose)
+    btnEditorClose.addEventListener('click', () => {
+      audioEngine.playSfx('menu_click');
+      if (mapEditorOverlay) mapEditorOverlay.classList.add('hidden');
+    });
 
   if (editorCanvas) {
-    editorCanvas.addEventListener('mousedown', e => {
+    editorCanvas.addEventListener('mousedown', (e) => {
       isPaintingEditor = true;
       paintEditorCellAt(e.clientX, e.clientY);
     });
-    editorCanvas.addEventListener('mousemove', e => {
+    editorCanvas.addEventListener('mousemove', (e) => {
       if (isPaintingEditor) paintEditorCellAt(e.clientX, e.clientY);
     });
-    editorCanvas.addEventListener('contextmenu', e => e.preventDefault());
+    editorCanvas.addEventListener('contextmenu', (e) => e.preventDefault());
   }
-  window.addEventListener('mouseup', () => { isPaintingEditor = false; });
-
-  if (btnEditorClear) btnEditorClear.addEventListener('click', () => {
-    audioEngine.playSfx("menu_click");
-    editorGrid = createEmptyEditorGrid();
-    renderEditorCanvas();
+  window.addEventListener('mouseup', () => {
+    isPaintingEditor = false;
   });
 
-  if (btnEditorRandom) btnEditorRandom.addEventListener('click', () => {
-    audioEngine.playSfx("menu_click");
-    editorGrid = MapDataGenerator.generateStage(Math.floor(Math.random() * 200) + 1);
-    renderEditorCanvas();
-  });
+  if (btnEditorClear)
+    btnEditorClear.addEventListener('click', () => {
+      audioEngine.playSfx('menu_click');
+      editorGrid = createEmptyEditorGrid();
+      renderEditorCanvas();
+    });
 
-  if (btnEditorSave) btnEditorSave.addEventListener('click', () => {
-    audioEngine.playSfx("menu_click");
-    StorageManager.saveCustomMap(editorGrid);
-  });
+  if (btnEditorRandom)
+    btnEditorRandom.addEventListener('click', () => {
+      audioEngine.playSfx('menu_click');
+      editorGrid = MapDataGenerator.generateStage(
+        Math.floor(Math.random() * 200) + 1
+      );
+      renderEditorCanvas();
+    });
 
-  if (btnEditorTestPlay) btnEditorTestPlay.addEventListener('click', () => {
-    if (!editorGrid) return;
-    audioEngine.playSfx("menu_start");
-    levelManager.setCustomMap(editorGrid);
-    if (mapEditorOverlay) mapEditorOverlay.classList.add('hidden');
-    startGame();
-  });
+  if (btnEditorSave)
+    btnEditorSave.addEventListener('click', () => {
+      audioEngine.playSfx('menu_click');
+      StorageManager.saveCustomMap(editorGrid);
+    });
+
+  if (btnEditorTestPlay)
+    btnEditorTestPlay.addEventListener('click', () => {
+      if (!editorGrid) return;
+      audioEngine.playSfx('menu_start');
+      levelManager.setCustomMap(editorGrid);
+      if (mapEditorOverlay) mapEditorOverlay.classList.add('hidden');
+      startGame();
+    });
 
   // 全局 鍵盤熱鍵 (Q: 武器輪盤, ESC: 戰術抽屜, 1-6: 武器, P: 暫停, M: 靜音)
   // 注意：Q/Tab/P/M 已進中 Engine.bindEvents() 處理（透過回調）
   // 這裡僅處理 ESC 抽屜 + 數字鍵武器切換 + Enter/Space 開始遊戲
-  window.addEventListener('keydown', e => {
+  window.addEventListener('keydown', (e) => {
     if (e.code === 'Escape') {
       e.preventDefault();
       toggleSettingsDrawer();
-    } else if (['Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5', 'Digit6'].includes(e.code)) {
+    } else if (
+      ['Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5', 'Digit6'].includes(
+        e.code
+      )
+    ) {
       const num = parseInt(e.code.replace('Digit', ''), 10) - 1;
       updateWeaponSelectionUI(num);
     } else if (e.code === 'Enter' || e.code === 'Space') {
-      if (overlay && !overlay.classList.contains('hidden') && gameEngine.state !== 'PLAYING') {
+      if (
+        overlay &&
+        !overlay.classList.contains('hidden') &&
+        gameEngine.state !== 'PLAYING'
+      ) {
         e.preventDefault();
         startGame();
-      } else if (scoreTallyOverlay && !scoreTallyOverlay.classList.contains('hidden')) {
+      } else if (
+        scoreTallyOverlay &&
+        !scoreTallyOverlay.classList.contains('hidden')
+      ) {
         e.preventDefault();
         continueFromTally();
       }
@@ -655,7 +804,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // 開始遊戲
   async function startGame() {
-    audioEngine.playSfx("menu_start");
+    audioEngine.playSfx('menu_start');
     if (overlay) overlay.classList.add('hidden');
     await gameEngine.startStage(previewStageNum);
   }
@@ -670,13 +819,21 @@ document.addEventListener('DOMContentLoaded', () => {
   const tallyRankBadge = document.getElementById('tally-rank-badge');
   const btnTallyContinue = document.getElementById('btn-tally-continue');
 
-  const KILL_TYPE_LABELS = { basic: '基本兵', fast: '快速兵', power: '強化兵', armor: '重裝兵', chaser: '追擊兵', patrol: '巡邏兵', kamikaze: '自爆兵' };
+  const KILL_TYPE_LABELS = {
+    basic: '基本兵',
+    fast: '快速兵',
+    power: '強化兵',
+    armor: '重裝兵',
+    chaser: '追擊兵',
+    patrol: '巡邏兵',
+    kamikaze: '自爆兵',
+  };
 
   function renderKillTally(container, killsP1, killsP2, gameMode) {
     if (!container) return;
     container.innerHTML = '';
     const addRows = (kills, ownerLabel) => {
-      Object.keys(KILL_TYPE_LABELS).forEach(type => {
+      Object.keys(KILL_TYPE_LABELS).forEach((type) => {
         const count = (kills && kills[type]) || 0;
         if (count <= 0) return;
         const row = document.createElement('div');
@@ -697,17 +854,33 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function runScoreTallyAnimation(data, isVictory) {
     if (scoreTallyOverlay) scoreTallyOverlay.classList.remove('hidden');
-    const stageFormatted = String(data.stage || levelManager.currentStage).padStart(3, '0');
-    if (tallyTitle) tallyTitle.innerText = isVictory ? `STAGE ${stageFormatted} CLEAR!` : `STAGE ${stageFormatted} FAILED`;
-    if (tallyTotalScore) tallyTotalScore.innerText = String(data.score).padStart(7, '0');
-    if (tallyRankBadge) tallyRankBadge.innerText = isVictory ? 'ACE ★★★ (S級)' : 'SOLDIER (C級)';
-    if (btnTallyContinue) btnTallyContinue.innerText = isVictory ? '⚔️ 進入下一關 (SPACE)' : '🔁 重新挑戰 (SPACE)';
-    renderKillTally(tallyBodyGrid, data.killsP1, data.killsP2, gameEngine.gameMode);
+    const stageFormatted = String(
+      data.stage || levelManager.currentStage
+    ).padStart(3, '0');
+    if (tallyTitle)
+      tallyTitle.innerText = isVictory
+        ? `STAGE ${stageFormatted} CLEAR!`
+        : `STAGE ${stageFormatted} FAILED`;
+    if (tallyTotalScore)
+      tallyTotalScore.innerText = String(data.score).padStart(7, '0');
+    if (tallyRankBadge)
+      tallyRankBadge.innerText = isVictory ? 'ACE ★★★ (S級)' : 'SOLDIER (C級)';
+    if (btnTallyContinue)
+      btnTallyContinue.innerText = isVictory
+        ? '⚔️ 進入下一關 (SPACE)'
+        : '🔁 重新挑戰 (SPACE)';
+    renderKillTally(
+      tallyBodyGrid,
+      data.killsP1,
+      data.killsP2,
+      gameEngine.gameMode
+    );
   }
 
   async function continueFromTally() {
-    if (!scoreTallyOverlay || scoreTallyOverlay.classList.contains('hidden')) return;
-    audioEngine.playSfx("menu_click");
+    if (!scoreTallyOverlay || scoreTallyOverlay.classList.contains('hidden'))
+      return;
+    audioEngine.playSfx('menu_click');
     scoreTallyOverlay.classList.add('hidden');
     if (gameEngine.state === 'VICTORY') {
       await gameEngine.startStage(levelManager.currentStage + 1);
@@ -722,10 +895,101 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // 60FPS 動畫主迴圈
   function gameLoop() {
+    stats.begin();
     gameEngine.update();
     gameEngine.render();
-    levelManager.renderMinimap(minimapCanvas, gameEngine.player1, gameEngine.enemiesOnField);
+    levelManager.renderMinimap(
+      minimapCanvas,
+      gameEngine.player1,
+      gameEngine.enemiesOnField
+    );
+    stats.end();
     requestAnimationFrame(gameLoop);
+  }
+
+  // ===== 行動裝置除錯與虛擬搖桿 =====
+  if (window.innerWidth < 768) {
+    const vConsole = new VConsole();
+
+    // 初始化隱藏圖層作為觸控熱區
+    const joystickZone = document.createElement('div');
+    joystickZone.id = 'joystick-zone';
+    joystickZone.style.position = 'absolute';
+    joystickZone.style.left = '0';
+    joystickZone.style.top = '0';
+    joystickZone.style.width = '50%';
+    joystickZone.style.height = '100%';
+    joystickZone.style.zIndex = '999';
+    document.body.appendChild(joystickZone);
+
+    const manager = nipplejs.create({
+      zone: joystickZone,
+      mode: 'dynamic',
+      color: 'white',
+    });
+
+    manager.on('move', (evt, data) => {
+      const angle = data.angle.degree;
+      gameEngine.keys['ArrowUp'] = false;
+      gameEngine.keys['ArrowDown'] = false;
+      gameEngine.keys['ArrowLeft'] = false;
+      gameEngine.keys['ArrowRight'] = false;
+
+      if (angle >= 45 && angle <= 135) gameEngine.keys['ArrowUp'] = true;
+      else if (angle >= 225 && angle <= 315)
+        gameEngine.keys['ArrowDown'] = true;
+      else if (angle > 135 && angle < 225) gameEngine.keys['ArrowLeft'] = true;
+      else gameEngine.keys['ArrowRight'] = true;
+    });
+
+    manager.on('end', () => {
+      gameEngine.keys['ArrowUp'] = false;
+      gameEngine.keys['ArrowDown'] = false;
+      gameEngine.keys['ArrowLeft'] = false;
+      gameEngine.keys['ArrowRight'] = false;
+    });
+
+    // 右側動作按鈕
+    const actionZone = document.createElement('div');
+    actionZone.style.position = 'absolute';
+    actionZone.style.right = '20px';
+    actionZone.style.bottom = '80px'; // 避開 vConsole 按鈕
+    actionZone.style.zIndex = '999';
+    actionZone.style.display = 'flex';
+    actionZone.style.gap = '20px';
+
+    const createBtn = (label, actionFn) => {
+      const btn = document.createElement('button');
+      btn.textContent = label;
+      btn.style.width = '60px';
+      btn.style.height = '60px';
+      btn.style.borderRadius = '50%';
+      btn.style.background = 'rgba(255, 255, 255, 0.3)';
+      btn.style.border = '2px solid white';
+      btn.style.color = 'white';
+      btn.style.fontSize = '14px';
+      // 使用 mousedown 與 touchstart 避免點擊穿透問題
+      btn.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        actionFn();
+      });
+      btn.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        actionFn();
+      });
+      return btn;
+    };
+
+    const btnDash = createBtn('Dash', () => {
+      gameEngine.playerDash(1);
+    });
+    const btnShoot = createBtn('射擊', () => {
+      gameEngine.playerShoot(1);
+    });
+
+    actionZone.appendChild(btnDash);
+    actionZone.appendChild(btnShoot);
+    document.body.appendChild(actionZone);
   }
 
   updatePreview();

@@ -14,7 +14,7 @@
   --color-purple: #d500f9;
   --color-text-bright: #eceff4;
   --color-text-dim: #8892b0;
-  
+
   --font-retro: 'Press Start 2P', monospace;
   --font-tech: 'Orbitron', sans-serif;
   --font-sans: 'Noto Sans TC', sans-serif;
@@ -27,7 +27,8 @@
   user-select: none;
 }
 
-html, body {
+html,
+body {
   width: 100vw;
   height: 100vh;
   overflow: hidden;
@@ -85,7 +86,9 @@ html, body {
   -webkit-backdrop-filter: blur(16px);
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 12px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), inset 0 0 12px rgba(255, 255, 255, 0.05);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.5),
+    inset 0 0 12px rgba(255, 255, 255, 0.05);
 }
 
 /* ===== 左上角 戰術 HUD 晶片 ===== */
@@ -150,9 +153,18 @@ html, body {
   font-size: 16px;
 }
 
-.gold-glow { color: var(--color-gold); text-shadow: 0 0 8px rgba(255, 202, 40, 0.4); }
-.yellow-text { color: #ffee58; }
-.red-text { color: var(--color-red); font-size: 18px; font-weight: 900; }
+.gold-glow {
+  color: var(--color-gold);
+  text-shadow: 0 0 8px rgba(255, 202, 40, 0.4);
+}
+.yellow-text {
+  color: #ffee58;
+}
+.red-text {
+  color: var(--color-red);
+  font-size: 18px;
+  font-weight: 900;
+}
 
 .lives-container {
   display: flex;
@@ -217,15 +229,24 @@ html, body {
   left: -50%;
   width: 200%;
   height: 200%;
-  background: conic-gradient(from 0deg, rgba(0, 230, 118, 0.25) 0deg, transparent 60deg, transparent 360deg);
+  background: conic-gradient(
+    from 0deg,
+    rgba(0, 230, 118, 0.25) 0deg,
+    transparent 60deg,
+    transparent 360deg
+  );
   border-radius: 50%;
   animation: radar-spin 4s linear infinite;
   pointer-events: none;
 }
 
 @keyframes radar-spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* ===== 右上角 快捷按鈕列 ===== */
@@ -397,7 +418,8 @@ html, body {
   height: 72px;
   margin-top: -36px;
   margin-left: -36px;
-  transform: rotate(var(--angle)) translate(110px) rotate(calc(-1 * var(--angle)));
+  transform: rotate(var(--angle)) translate(110px)
+    rotate(calc(-1 * var(--angle)));
   background: rgba(20, 28, 42, 0.85);
   border: 2px solid rgba(255, 255, 255, 0.2);
   border-radius: 50%;
@@ -409,15 +431,24 @@ html, body {
   transition: all 0.2s ease;
 }
 
-.wheel-item:hover, .wheel-item.selected {
+.wheel-item:hover,
+.wheel-item.selected {
   border-color: var(--color-gold);
   background: rgba(255, 202, 40, 0.25);
   box-shadow: 0 0 20px rgba(255, 202, 40, 0.6);
-  transform: rotate(var(--angle)) translate(110px) rotate(calc(-1 * var(--angle))) scale(1.15);
+  transform: rotate(var(--angle)) translate(110px)
+    rotate(calc(-1 * var(--angle))) scale(1.15);
 }
 
-.w-icon { font-size: 24px; }
-.w-name { font-size: 10px; font-weight: 700; color: var(--color-text-bright); margin-top: 2px; }
+.w-icon {
+  font-size: 24px;
+}
+.w-name {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--color-text-bright);
+  margin-top: 2px;
+}
 
 .wheel-center-info {
   position: absolute;
@@ -501,7 +532,9 @@ html, body {
   cursor: pointer;
 }
 
-.close-drawer-btn:hover { color: var(--color-red); }
+.close-drawer-btn:hover {
+  color: var(--color-red);
+}
 
 .setting-section {
   display: flex;
@@ -602,7 +635,9 @@ html, body {
   align-items: center;
 }
 
-.hidden { display: none !important; }
+.hidden {
+  display: none !important;
+}
 
 .overlay-card {
   padding: 40px;
@@ -695,8 +730,12 @@ html, body {
 }
 
 @keyframes pulse-glow-anim {
-  from { box-shadow: 0 0 10px rgba(255, 61, 0, 0.4); }
-  to { box-shadow: 0 0 25px rgba(255, 61, 0, 0.8); }
+  from {
+    box-shadow: 0 0 10px rgba(255, 61, 0, 0.4);
+  }
+  to {
+    box-shadow: 0 0 25px rgba(255, 61, 0, 0.8);
+  }
 }
 
 /* 巨型 Boss 血條 HUD */
@@ -806,7 +845,9 @@ html, body {
   color: var(--color-cyan);
   font-weight: 700;
   letter-spacing: 0.05em;
-  transition: background 0.2s, border-color 0.2s;
+  transition:
+    background 0.2s,
+    border-color 0.2s;
 }
 
 .keybind-btn {
@@ -836,8 +877,14 @@ html, body {
   pointer-events: none;
 }
 @keyframes keybind-pulse {
-  from { box-shadow: 0 0 4px rgba(213, 0, 249, 0.4); opacity: 0.7; }
-  to   { box-shadow: 0 0 14px rgba(213, 0, 249, 0.9); opacity: 1.0; }
+  from {
+    box-shadow: 0 0 4px rgba(213, 0, 249, 0.4);
+    opacity: 0.7;
+  }
+  to {
+    box-shadow: 0 0 14px rgba(213, 0, 249, 0.9);
+    opacity: 1;
+  }
 }
 
 .keybind-footer {
@@ -877,13 +924,21 @@ html, body {
   text-align: center;
   min-width: 340px;
   border: 1px solid rgba(0, 229, 255, 0.3);
-  box-shadow: 0 0 40px rgba(0, 229, 255, 0.15), 0 16px 64px rgba(0, 0, 0, 0.7);
+  box-shadow:
+    0 0 40px rgba(0, 229, 255, 0.15),
+    0 16px 64px rgba(0, 0, 0, 0.7);
   animation: pause-card-in 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
 
 @keyframes pause-card-in {
-  from { transform: scale(0.85); opacity: 0; }
-  to   { transform: scale(1);    opacity: 1; }
+  from {
+    transform: scale(0.85);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 .pause-icon {
@@ -892,8 +947,13 @@ html, body {
   animation: pause-bounce 1.5s ease-in-out infinite;
 }
 @keyframes pause-bounce {
-  0%, 100% { transform: translateY(0); }
-  50%       { transform: translateY(-6px); }
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
 }
 
 .pause-title {
@@ -946,9 +1006,18 @@ html, body {
   margin-bottom: 4px;
 }
 
-.tally-row-label { color: var(--color-text-bright); }
-.tally-row-value { color: var(--color-gold); font-family: var(--font-tech); font-weight: 700; }
-.tally-row-empty { justify-content: center; color: var(--color-text-dim); }
+.tally-row-label {
+  color: var(--color-text-bright);
+}
+.tally-row-value {
+  color: var(--color-gold);
+  font-family: var(--font-tech);
+  font-weight: 700;
+}
+.tally-row-empty {
+  justify-content: center;
+  color: var(--color-text-dim);
+}
 
 /* ===== 🗺️ 選擇關卡 (1~200) ===== */
 .stage-select-card {

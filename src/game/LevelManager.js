@@ -11,16 +11,16 @@ export class LevelManager {
 
     // JSON 地圖快取（四期各一份）
     this._jsonCache = {
-      '1-50':    null,
-      '51-100':  null,
+      '1-50': null,
+      '51-100': null,
       '101-150': null,
       '151-200': null,
     };
 
     // 當前關卡三層地圖資料
-    this.currentFloor    = [];  // 地面層（主題底材）
-    this.currentObstacle = [];  // 障礙層（碰撞）
-    this.currentRoof     = [];  // 屋頂裝飾層
+    this.currentFloor = []; // 地面層（主題底材）
+    this.currentObstacle = []; // 障礙層（碰撞）
+    this.currentRoof = []; // 屋頂裝飾層
 
     // 當前主題
     this.currentTheme = 'VILLAGE';
@@ -28,7 +28,7 @@ export class LevelManager {
 
   // ===== 決定關卡號碼對應哪份 JSON 檔案 =====
   _getFileKey(stageNum) {
-    if (stageNum <= 50)  return '1-50';
+    if (stageNum <= 50) return '1-50';
     if (stageNum <= 100) return '51-100';
     if (stageNum <= 150) return '101-150';
     return '151-200';
@@ -40,8 +40,8 @@ export class LevelManager {
     if (this._jsonCache[key]) return this._jsonCache[key];
 
     const fileMap = {
-      '1-50':    'Stage1-50.json',
-      '51-100':  'Stage51-100.json',
+      '1-50': 'Stage1-50.json',
+      '51-100': 'Stage51-100.json',
       '101-150': 'Stage101-150.json',
       '151-200': 'Stage151-200.json',
     };
@@ -54,7 +54,10 @@ export class LevelManager {
       this._jsonCache[key] = data;
       return data;
     } catch (e) {
-      console.warn(`[LevelManager] JSON 地圖載入失敗 (${fileName})，回退到程序化生成:`, e);
+      console.warn(
+        `[LevelManager] JSON 地圖載入失敗 (${fileName})，回退到程序化生成:`,
+        e
+      );
       return null;
     }
   }
@@ -64,7 +67,7 @@ export class LevelManager {
     const key = this._getFileKey(stageNum);
     const cache = this._jsonCache[key];
     if (!cache || !cache.stages) return null;
-    return cache.stages.find(s => s.stage === stageNum) || null;
+    return cache.stages.find((s) => s.stage === stageNum) || null;
   }
 
   // ===== 同步載入關卡（優先使用自訂地圖，其次 JSON，最後回退程序化生成）=====
@@ -83,18 +86,18 @@ export class LevelManager {
     } else {
       const stageData = this._getStageFromCache(stageNum);
       if (stageData) {
-        this.currentFloor    = stageData.floor    || [];
+        this.currentFloor = stageData.floor || [];
         this.currentObstacle = stageData.obstacle || [];
-        this.currentRoof     = stageData.roof     || [];
+        this.currentRoof = stageData.roof || [];
         this.currentMap = this.currentObstacle;
       } else {
         // 回退程序化生成
         this.currentMap = extended
           ? MapDataGenerator.generateExtendedStage(this.currentStage)
           : MapDataGenerator.generateStage(this.currentStage);
-        this.currentFloor    = [];
+        this.currentFloor = [];
         this.currentObstacle = this.currentMap;
-        this.currentRoof     = [];
+        this.currentRoof = [];
       }
     }
     return this.currentMap;
@@ -111,8 +114,9 @@ export class LevelManager {
     const ctx = canvas.getContext('2d');
     const w = canvas.width;
     const h = canvas.height;
-    const mapData = this.currentObstacle.length > 0 ? this.currentObstacle : this.currentMap;
-    const gridCols = (mapData && mapData.length) ? mapData.length : MAP_SIZE;
+    const mapData =
+      this.currentObstacle.length > 0 ? this.currentObstacle : this.currentMap;
+    const gridCols = mapData && mapData.length ? mapData.length : MAP_SIZE;
     const tileSize = w / gridCols;
 
     ctx.fillStyle = 'rgba(5, 8, 13, 0.95)';
@@ -123,19 +127,19 @@ export class LevelManager {
       for (let c = 0; c < gridCols; c++) {
         const tile = mapData[r][c];
         let color = null;
-        if (tile === TILE.BRICK)         color = '#d84315';
-        else if (tile === TILE.STEEL)    color = '#90a4ae';
-        else if (tile === TILE.WATER)    color = '#0288d1';
-        else if (tile === TILE.SAND)     color = '#d4a373';
-        else if (tile === TILE.BOOST)    color = '#00f5d4';
-        else if (tile === TILE.LAVA)     color = '#ff4800';
-        else if (tile === TILE.PORTAL)   color = '#f72585';
-        else if (tile === TILE.BASE)     color = '#ffca28';
-        else if (tile === TILE_EXT.FENCE)   color = '#8b5e2e';
+        if (tile === TILE.BRICK) color = '#d84315';
+        else if (tile === TILE.STEEL) color = '#90a4ae';
+        else if (tile === TILE.WATER) color = '#0288d1';
+        else if (tile === TILE.SAND) color = '#d4a373';
+        else if (tile === TILE.BOOST) color = '#00f5d4';
+        else if (tile === TILE.LAVA) color = '#ff4800';
+        else if (tile === TILE.PORTAL) color = '#f72585';
+        else if (tile === TILE.BASE) color = '#ffca28';
+        else if (tile === TILE_EXT.FENCE) color = '#8b5e2e';
         else if (tile === TILE_EXT.SANDBAG) color = '#c4a35a';
-        else if (tile === TILE_EXT.RUBBLE)  color = '#6d6050';
-        else if (tile === TILE_EXT.BARREL)  color = '#ff6820';
-        else if (tile === TILE_EXT.MINE)    color = '#cc0000';
+        else if (tile === TILE_EXT.RUBBLE) color = '#6d6050';
+        else if (tile === TILE_EXT.BARREL) color = '#ff6820';
+        else if (tile === TILE_EXT.MINE) color = '#cc0000';
 
         if (color) {
           ctx.fillStyle = color;
@@ -144,7 +148,7 @@ export class LevelManager {
       }
     }
 
-    const worldWidth = gridCols * 64;  // 64px tileSize
+    const worldWidth = gridCols * 64; // 64px tileSize
     const worldHeight = gridCols * 64;
 
     if (player && player.alive) {
@@ -158,7 +162,7 @@ export class LevelManager {
 
     if (enemies) {
       ctx.fillStyle = '#ff1744';
-      enemies.forEach(e => {
+      enemies.forEach((e) => {
         if (e.alive) {
           const ex = (e.x / worldWidth) * w;
           const ey = (e.y / worldHeight) * h;
@@ -177,7 +181,9 @@ export class LevelManager {
     const w = canvas.width;
     const h = canvas.height;
     const stageData = this._getStageFromCache(targetStage);
-    const previewGrid = stageData ? stageData.obstacle : MapDataGenerator.generateStage(targetStage);
+    const previewGrid = stageData
+      ? stageData.obstacle
+      : MapDataGenerator.generateStage(targetStage);
     const gridSize = previewGrid.length || MAP_SIZE;
     const tileSize = w / gridSize;
 
@@ -190,19 +196,44 @@ export class LevelManager {
         const tile = previewGrid[r][c];
         if (tile === TILE.BRICK) {
           ctx.fillStyle = '#bf360c';
-          ctx.fillRect(c * tileSize, (r / gridSize) * h, tileSize, tileSize * (h / w));
+          ctx.fillRect(
+            c * tileSize,
+            (r / gridSize) * h,
+            tileSize,
+            tileSize * (h / w)
+          );
         } else if (tile === TILE.STEEL) {
           ctx.fillStyle = '#78909c';
-          ctx.fillRect(c * tileSize, (r / gridSize) * h, tileSize, tileSize * (h / w));
+          ctx.fillRect(
+            c * tileSize,
+            (r / gridSize) * h,
+            tileSize,
+            tileSize * (h / w)
+          );
         } else if (tile === TILE.WATER) {
           ctx.fillStyle = '#0277bd';
-          ctx.fillRect(c * tileSize, (r / gridSize) * h, tileSize, tileSize * (h / w));
+          ctx.fillRect(
+            c * tileSize,
+            (r / gridSize) * h,
+            tileSize,
+            tileSize * (h / w)
+          );
         } else if (tile === TILE.TREES) {
           ctx.fillStyle = '#2e7d32';
-          ctx.fillRect(c * tileSize, (r / gridSize) * h, tileSize, tileSize * (h / w));
+          ctx.fillRect(
+            c * tileSize,
+            (r / gridSize) * h,
+            tileSize,
+            tileSize * (h / w)
+          );
         } else if (tile === TILE.BASE) {
           ctx.fillStyle = '#ffb300';
-          ctx.fillRect(c * tileSize, (r / gridSize) * h, tileSize, tileSize * (h / w));
+          ctx.fillRect(
+            c * tileSize,
+            (r / gridSize) * h,
+            tileSize,
+            tileSize * (h / w)
+          );
         }
       }
     }

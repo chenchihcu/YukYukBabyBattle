@@ -19,7 +19,8 @@ export class ParticleSystem {
   // 1. SNES / 2.5D 三階爆破火球（黃-橘-紅火球擴散與黑煙）
   createExplosion(x, y, color = '#ff9800', count = 20) {
     this.particles.push({
-      x, y,
+      x,
+      y,
       radius: 6,
       maxRadius: 28,
       color: '#ffff00',
@@ -27,7 +28,7 @@ export class ParticleSystem {
       outerColor: '#ff3d00',
       alpha: 1,
       isFireball: true,
-      decay: 0.05
+      decay: 0.05,
     });
 
     for (let i = 0; i < count; i++) {
@@ -36,16 +37,17 @@ export class ParticleSystem {
       const isDebris = Math.random() < 0.4;
 
       this.particles.push({
-        x, y,
+        x,
+        y,
         vx: Math.cos(angle) * speed,
         vy: Math.sin(angle) * speed,
-        radius: isDebris ? (2 + Math.random() * 3) : (1.5 + Math.random() * 2),
+        radius: isDebris ? 2 + Math.random() * 3 : 1.5 + Math.random() * 2,
         color: isDebris ? '#d84315' : color,
         alpha: 1,
         isDebris,
         rot: Math.random() * Math.PI * 2,
         rotSpeed: (Math.random() - 0.5) * 0.3,
-        decay: 0.03 + Math.random() * 0.03
+        decay: 0.03 + Math.random() * 0.03,
       });
     }
 
@@ -61,7 +63,7 @@ export class ParticleSystem {
         color: '#263238',
         alpha: 0.8,
         isSmoke: true,
-        decay: 0.02
+        decay: 0.02,
       });
     }
   }
@@ -69,14 +71,16 @@ export class ParticleSystem {
   // 2. 雷射 / 電磁軌跡衝擊波
   createShockwave(x, y, color = '#00e5ff') {
     this.particles.push({
-      x, y,
-      vx: 0, vy: 0,
+      x,
+      y,
+      vx: 0,
+      vy: 0,
       radius: 4,
       maxRadius: 36,
       color,
       alpha: 1,
       isShockwave: true,
-      decay: 0.05
+      decay: 0.05,
     });
   }
 
@@ -86,14 +90,15 @@ export class ParticleSystem {
       const angle = Math.random() * Math.PI * 2;
       const speed = 2 + Math.random() * 5;
       this.particles.push({
-        x, y,
+        x,
+        y,
         vx: Math.cos(angle) * speed,
         vy: Math.sin(angle) * speed,
         radius: 1 + Math.random() * 2,
         color,
         alpha: 1,
         isSpark: true,
-        decay: 0.08
+        decay: 0.08,
       });
     }
   }
@@ -141,7 +146,7 @@ export class ParticleSystem {
           y: -10,
           vx: -1.5,
           vy: 12 + Math.random() * 4,
-          length: 12 + Math.random() * 8
+          length: 12 + Math.random() * 8,
         });
       }
     } else if (this.weatherMode === 'snow') {
@@ -151,7 +156,7 @@ export class ParticleSystem {
           y: -10,
           vx: (Math.random() - 0.5) * 1.2,
           vy: 1 + Math.random() * 1.5,
-          radius: 1.5 + Math.random() * 2
+          radius: 1.5 + Math.random() * 2,
         });
       }
     }
@@ -168,7 +173,7 @@ export class ParticleSystem {
 
   render(ctx) {
     ctx.save();
-    this.particles.forEach(p => {
+    this.particles.forEach((p) => {
       ctx.globalAlpha = Math.max(0, p.alpha);
 
       if (p.isFireball) {
@@ -214,7 +219,7 @@ export class ParticleSystem {
       ctx.strokeStyle = 'rgba(128, 222, 234, 0.4)';
       ctx.lineWidth = 1.5;
       ctx.beginPath();
-      this.weatherParticles.forEach(wp => {
+      this.weatherParticles.forEach((wp) => {
         ctx.moveTo(wp.x, wp.y);
         ctx.lineTo(wp.x + wp.vx, wp.y + wp.length);
       });
@@ -223,7 +228,7 @@ export class ParticleSystem {
     } else if (this.weatherMode === 'snow') {
       ctx.save();
       ctx.fillStyle = '#ffffff';
-      this.weatherParticles.forEach(wp => {
+      this.weatherParticles.forEach((wp) => {
         ctx.beginPath();
         ctx.arc(wp.x, wp.y, wp.radius, 0, Math.PI * 2);
         ctx.fill();

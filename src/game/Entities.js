@@ -9,12 +9,13 @@ export const DIR = {
   UP: 0,
   RIGHT: 1,
   DOWN: 2,
-  LEFT: 3
+  LEFT: 3,
 };
 
 // 依方向與速度計算下一格座標（供玩家/AI 共用）
 export function stepInDirection(x, y, dir, speed) {
-  let nx = x, ny = y;
+  let nx = x,
+    ny = y;
   if (dir === DIR.UP) ny -= speed;
   else if (dir === DIR.RIGHT) nx += speed;
   else if (dir === DIR.DOWN) ny += speed;
@@ -67,7 +68,13 @@ export class Tank {
   }
 
   dash() {
-    if (this.dashCooldown > 0 || !this.alive || this.isFrozen || this.isParalyzed) return false;
+    if (
+      this.dashCooldown > 0 ||
+      !this.alive ||
+      this.isFrozen ||
+      this.isParalyzed
+    )
+      return false;
     this.dashTimer = this.maxDashTimer;
     this.dashCooldown = this.maxDashCooldown;
     this.isDashing = true;
@@ -122,7 +129,8 @@ export class Tank {
   render(ctx, renderMode = '2D') {
     if (!this.alive) return;
     const bodyAngle = (this.dir * 90 * Math.PI) / 180;
-    const currentTurretAngle = this.turretAngle !== null ? this.turretAngle : (bodyAngle - Math.PI / 2);
+    const currentTurretAngle =
+      this.turretAngle !== null ? this.turretAngle : bodyAngle - Math.PI / 2;
     const is64Bit = renderMode === '64BIT';
 
     ctx.save();
@@ -171,42 +179,78 @@ export class Tank {
       if (this.playerNum === 2) {
         // Player 2 湛藍/賽博專屬配色
         if (this.isDashing) {
-          bodyColorMain = '#00e5ff'; bodyColorLight = '#ffffff'; bodyColorDark = '#00838f';
+          bodyColorMain = '#00e5ff';
+          bodyColorLight = '#ffffff';
+          bodyColorDark = '#00838f';
         } else if (this.starLevel >= 4) {
-          bodyColorMain = '#00b0ff'; bodyColorLight = '#80d8ff'; bodyColorDark = '#0056b3';
+          bodyColorMain = '#00b0ff';
+          bodyColorLight = '#80d8ff';
+          bodyColorDark = '#0056b3';
         } else if (this.starLevel === 3) {
-          bodyColorMain = '#0288d1'; bodyColorLight = '#b3e5fc'; bodyColorDark = '#01579b';
+          bodyColorMain = '#0288d1';
+          bodyColorLight = '#b3e5fc';
+          bodyColorDark = '#01579b';
         } else if (this.starLevel === 2) {
-          bodyColorMain = '#29b6f6'; bodyColorLight = '#e0f7fa'; bodyColorDark = '#0277bd';
+          bodyColorMain = '#29b6f6';
+          bodyColorLight = '#e0f7fa';
+          bodyColorDark = '#0277bd';
         } else {
-          bodyColorMain = '#00e5ff'; bodyColorLight = '#b2ebf2'; bodyColorDark = '#0097a7';
+          bodyColorMain = '#00e5ff';
+          bodyColorLight = '#b2ebf2';
+          bodyColorDark = '#0097a7';
         }
       } else {
         // Player 1 經典翠綠/黃金配色
         if (this.isDashing) {
-          bodyColorMain = '#00b0ff'; bodyColorLight = '#80d8ff'; bodyColorDark = '#0056b3';
+          bodyColorMain = '#00b0ff';
+          bodyColorLight = '#80d8ff';
+          bodyColorDark = '#0056b3';
         } else if (this.starLevel >= 4) {
-          bodyColorMain = '#d500f9'; bodyColorLight = '#ff80ab'; bodyColorDark = '#aa00ff';
+          bodyColorMain = '#d500f9';
+          bodyColorLight = '#ff80ab';
+          bodyColorDark = '#aa00ff';
         } else if (this.starLevel === 3) {
-          bodyColorMain = '#ffb300'; bodyColorLight = '#ffe57f'; bodyColorDark = '#ff6f00';
+          bodyColorMain = '#ffb300';
+          bodyColorLight = '#ffe57f';
+          bodyColorDark = '#ff6f00';
         } else if (this.starLevel === 2) {
-          bodyColorMain = '#00c853'; bodyColorLight = '#b9f6ca'; bodyColorDark = '#007e33';
+          bodyColorMain = '#00c853';
+          bodyColorLight = '#b9f6ca';
+          bodyColorDark = '#007e33';
         } else {
-          bodyColorMain = '#76ff03'; bodyColorLight = '#ccff90'; bodyColorDark = '#33691e';
+          bodyColorMain = '#76ff03';
+          bodyColorLight = '#ccff90';
+          bodyColorDark = '#33691e';
         }
       }
     } else {
       // 敵方坦克配色
       if (this.enemyType === 'armor') {
-        if (this.hp === 3) { bodyColorMain = '#9c27b0'; bodyColorLight = '#e1bee7'; bodyColorDark = '#4a148c'; }
-        else if (this.hp === 2) { bodyColorMain = '#ff9800'; bodyColorLight = '#ffe0b2'; bodyColorDark = '#e65100'; }
-        else { bodyColorMain = '#d50000'; bodyColorLight = '#ff8a80'; bodyColorDark = '#b71c1c'; }
+        if (this.hp === 3) {
+          bodyColorMain = '#9c27b0';
+          bodyColorLight = '#e1bee7';
+          bodyColorDark = '#4a148c';
+        } else if (this.hp === 2) {
+          bodyColorMain = '#ff9800';
+          bodyColorLight = '#ffe0b2';
+          bodyColorDark = '#e65100';
+        } else {
+          bodyColorMain = '#d50000';
+          bodyColorLight = '#ff8a80';
+          bodyColorDark = '#b71c1c';
+        }
       } else if (this.enemyType === 'fast') {
-        bodyColorMain = '#00e5ff'; bodyColorLight = '#80deea'; bodyColorDark = '#00838f';
+        bodyColorMain = '#00e5ff';
+        bodyColorLight = '#80deea';
+        bodyColorDark = '#00838f';
       } else if (this.enemyType === 'power') {
-        bodyColorMain = '#ffeb3b'; bodyColorLight = '#fff9c4'; bodyColorDark = '#f57f17';
+        bodyColorMain = '#ffeb3b';
+        bodyColorLight = '#fff9c4';
+        bodyColorDark = '#f57f17';
       } else {
-        bodyColorMain = '#ff3d00'; bodyColorLight = '#ff9e80'; bodyColorDark = '#dd2c00';
+        bodyColorMain = '#ff3d00';
+        bodyColorLight = '#ff9e80';
+        bodyColorDark = '#dd2c00';
       }
     }
 
@@ -311,7 +355,8 @@ export class Tank {
     // 6. 友軍麻痺電擊效果
     if (this.isParalyzed) {
       ctx.save();
-      ctx.strokeStyle = (Math.floor(Date.now() / 80) % 2 === 0) ? '#ffe082' : '#00e5ff';
+      ctx.strokeStyle =
+        Math.floor(Date.now() / 80) % 2 === 0 ? '#ffe082' : '#00e5ff';
       ctx.lineWidth = 2;
       ctx.strokeRect(-13, -13, 26, 26);
 
@@ -367,10 +412,16 @@ export class ChaserTank extends EnemyTank {
     } else {
       this.dir = dy > 0 ? DIR.DOWN : DIR.UP;
     }
-    const { x: nx, y: ny } = stepInDirection(this.x, this.y, this.dir, this.speed);
+    const { x: nx, y: ny } = stepInDirection(
+      this.x,
+      this.y,
+      this.dir,
+      this.speed
+    );
 
     if (engine.canMoveTo(nx, ny, this)) {
-      this.x = nx; this.y = ny;
+      this.x = nx;
+      this.y = ny;
     } else {
       this.dir = Math.floor(Math.random() * 4); // 繞道
     }
@@ -387,10 +438,16 @@ export class PatrolTank extends EnemyTank {
   updatePatrol(engine) {
     if (this.isFrozen || this.isParalyzed) return;
     this.update();
-    const { x: nx, y: ny } = stepInDirection(this.x, this.y, this.dir, this.speed);
+    const { x: nx, y: ny } = stepInDirection(
+      this.x,
+      this.y,
+      this.dir,
+      this.speed
+    );
 
     if (engine.canMoveTo(nx, ny, this)) {
-      this.x = nx; this.y = ny;
+      this.x = nx;
+      this.y = ny;
     } else {
       this.dir = (this.dir + 1) % 4; // 碰壁向右轉
     }
@@ -410,14 +467,18 @@ export class KamikazeTank extends EnemyTank {
     const dx = target.x - this.x;
     const dy = target.y - this.y;
     const dist = Math.sqrt(dx * dx + dy * dy);
-    
+
     // 自爆檢測
     if (dist < 80) {
       this.alive = false;
       engine.particles.createExplosion(this.x + 32, this.y + 32, '#ff3d00', 30);
-      engine.audioEngine.playSfx("explosion_big");
-      if (target.isPlayer && !target.hasShield && !target.isInvulnerable) {
-        engine.damagePlayer(target, target.playerNum === 1 ? 8 * 64 : 16 * 64, 22 * 64);
+      engine.audioEngine.playSfx('explosion_big');
+      if (target.isPlayer && !target.hasShield) {
+        engine.damagePlayer(
+          target,
+          target.playerNum === 1 ? 8 * 64 : 16 * 64,
+          22 * 64
+        );
       }
       return;
     }
@@ -427,10 +488,16 @@ export class KamikazeTank extends EnemyTank {
     } else {
       this.dir = dy > 0 ? DIR.DOWN : DIR.UP;
     }
-    const { x: nx, y: ny } = stepInDirection(this.x, this.y, this.dir, this.speed);
+    const { x: nx, y: ny } = stepInDirection(
+      this.x,
+      this.y,
+      this.dir,
+      this.speed
+    );
 
     if (engine.canMoveTo(nx, ny, this)) {
-      this.x = nx; this.y = ny;
+      this.x = nx;
+      this.y = ny;
     } else {
       this.dir = Math.floor(Math.random() * 4);
     }
@@ -439,7 +506,15 @@ export class KamikazeTank extends EnemyTank {
 
 // ===== 16-bit 子彈實體 =====
 export class Bullet {
-  constructor(x, y, dir, isPlayer = true, weaponType = 'normal', angle = null, shooterPlayerNum = 1) {
+  constructor(
+    x,
+    y,
+    dir,
+    isPlayer = true,
+    weaponType = 'normal',
+    angle = null,
+    shooterPlayerNum = 1
+  ) {
     this.x = x;
     this.y = y;
     this.dir = dir;
@@ -447,7 +522,8 @@ export class Bullet {
     this.shooterPlayerNum = shooterPlayerNum; // 1: P1, 2: P2
     this.weaponType = weaponType;
     const scale = 64 / 24;
-    this.speed = (weaponType === 'laser' ? 12 : (weaponType === 'fast' ? 8 : 5.5)) * scale;
+    this.speed =
+      (weaponType === 'laser' ? 12 : weaponType === 'fast' ? 8 : 5.5) * scale;
     this.width = (weaponType === 'laser' ? 4 : 6) * scale;
     this.height = (weaponType === 'laser' ? 16 : 6) * scale;
     this.alive = true;
@@ -458,10 +534,23 @@ export class Bullet {
       this.vx = Math.cos(this.angle) * this.speed;
       this.vy = Math.sin(this.angle) * this.speed;
     } else {
-      if (this.dir === DIR.UP) { this.vx = 0; this.vy = -this.speed; this.angle = -Math.PI / 2; }
-      else if (this.dir === DIR.RIGHT) { this.vx = this.speed; this.vy = 0; this.angle = 0; }
-      else if (this.dir === DIR.DOWN) { this.vx = 0; this.vy = this.speed; this.angle = Math.PI / 2; }
-      else if (this.dir === DIR.LEFT) { this.vx = -this.speed; this.vy = 0; this.angle = Math.PI; }
+      if (this.dir === DIR.UP) {
+        this.vx = 0;
+        this.vy = -this.speed;
+        this.angle = -Math.PI / 2;
+      } else if (this.dir === DIR.RIGHT) {
+        this.vx = this.speed;
+        this.vy = 0;
+        this.angle = 0;
+      } else if (this.dir === DIR.DOWN) {
+        this.vx = 0;
+        this.vy = this.speed;
+        this.angle = Math.PI / 2;
+      } else if (this.dir === DIR.LEFT) {
+        this.vx = -this.speed;
+        this.vy = 0;
+        this.angle = Math.PI;
+      }
     }
   }
 
@@ -642,14 +731,27 @@ export class DestructibleProp {
     ctx.save();
     ctx.translate(this.x, this.y);
     if (this.type === 'barrel') {
-      ctx.fillStyle = '#ff6820'; ctx.fillRect(16, 16, 32, 32);
-      ctx.fillStyle = '#a33000'; ctx.fillRect(16, 16, 32, 4); ctx.fillRect(16, 44, 32, 4);
+      ctx.fillStyle = '#ff6820';
+      ctx.fillRect(16, 16, 32, 32);
+      ctx.fillStyle = '#a33000';
+      ctx.fillRect(16, 16, 32, 4);
+      ctx.fillRect(16, 44, 32, 4);
     } else if (this.type === 'stump') {
-      ctx.fillStyle = '#4a2c10'; ctx.fillRect(12, 24, 40, 32);
-      ctx.fillStyle = '#d2a679'; ctx.beginPath(); ctx.ellipse(32, 24, 20, 10, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#4a2c10';
+      ctx.fillRect(12, 24, 40, 32);
+      ctx.fillStyle = '#d2a679';
+      ctx.beginPath();
+      ctx.ellipse(32, 24, 20, 10, 0, 0, Math.PI * 2);
+      ctx.fill();
     } else if (this.type === 'shack') {
-      ctx.fillStyle = '#5c4033'; ctx.fillRect(8, 24, 48, 36);
-      ctx.fillStyle = '#26140b'; ctx.beginPath(); ctx.moveTo(4, 24); ctx.lineTo(32, 4); ctx.lineTo(60, 24); ctx.fill();
+      ctx.fillStyle = '#5c4033';
+      ctx.fillRect(8, 24, 48, 36);
+      ctx.fillStyle = '#26140b';
+      ctx.beginPath();
+      ctx.moveTo(4, 24);
+      ctx.lineTo(32, 4);
+      ctx.lineTo(60, 24);
+      ctx.fill();
     }
     ctx.restore();
   }
