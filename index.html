@@ -226,6 +226,40 @@
       </div>
     </div>
 
+    <!-- ===== 選擇關卡 Overlay (1~200) ===== -->
+    <div id="stage-select-overlay" class="overlay hidden">
+      <div class="stage-select-card glass-panel">
+        <div class="editor-header">
+          <h2>🗺️ 選擇關卡 (1~200)</h2>
+          <button id="btn-stage-select-close" class="close-drawer-btn">✖</button>
+        </div>
+        <div class="stage-select-grid" id="stage-select-grid"></div>
+      </div>
+    </div>
+
+    <!-- ===== 地圖編輯器 Overlay ===== -->
+    <div id="map-editor-overlay" class="overlay hidden">
+      <div class="editor-card glass-panel">
+        <div class="editor-header">
+          <h2>🛠️ 地圖編輯器 (26x26)</h2>
+          <button id="btn-editor-close" class="close-drawer-btn">✖</button>
+        </div>
+        <div class="editor-body">
+          <canvas id="map-editor-canvas" width="520" height="520"></canvas>
+          <div class="editor-side">
+            <div class="editor-palette" id="map-editor-palette"></div>
+            <div class="editor-actions">
+              <button id="btn-editor-clear" class="setting-tab-btn">🗑️ 清空</button>
+              <button id="btn-editor-random" class="setting-tab-btn">🎲 隨機生成</button>
+              <button id="btn-editor-save" class="setting-tab-btn">💾 儲存</button>
+              <button id="btn-editor-test-play" class="arcade-btn primary-btn">▶ 測試遊玩</button>
+            </div>
+            <p class="editor-hint">拖曳滑鼠塗繪地形；預設已保留鷹徽基地磚牆位置。測試遊玩僅套用一次，離開後自動還原。</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- ===== 戰報結算 Overlay ===== -->
     <div id="score-tally-overlay" class="overlay hidden">
       <div class="tally-card glass-panel">

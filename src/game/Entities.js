@@ -12,6 +12,16 @@ export const DIR = {
   LEFT: 3
 };
 
+// 依方向與速度計算下一格座標（供玩家/AI 共用）
+export function stepInDirection(x, y, dir, speed) {
+  let nx = x, ny = y;
+  if (dir === DIR.UP) ny -= speed;
+  else if (dir === DIR.RIGHT) nx += speed;
+  else if (dir === DIR.DOWN) ny += speed;
+  else if (dir === DIR.LEFT) nx -= speed;
+  return { x: nx, y: ny };
+}
+
 // ===== 16-bit 坦克基類 =====
 export class Tank {
   constructor(x, y, isPlayer = false, playerNum = 1) {
@@ -62,6 +72,23 @@ export class Tank {
     this.dashCooldown = this.maxDashCooldown;
     this.isDashing = true;
     return true;
+  }
+
+  // 重生：重設位置與存活/異常狀態，並給予短暫護盾避免重生秒殺
+  respawn(x, y) {
+    this.x = x;
+    this.y = y;
+    this.alive = true;
+    this.hasShield = true;
+    this.shieldTimer = 90; // 1.5 秒重生無敵
+    this.isFrozen = false;
+    this.freezeTimer = 0;
+    this.isParalyzed = false;
+    this.paralyzeTimer = 0;
+    this.isDashing = false;
+    this.dashTimer = 0;
+    this.cooldown = 0;
+    this.turretAngle = null;
   }
 
   update() {
@@ -340,11 +367,7 @@ export class ChaserTank extends EnemyTank {
     } else {
       this.dir = dy > 0 ? DIR.DOWN : DIR.UP;
     }
-    let nx = this.x; let ny = this.y;
-    if (this.dir === DIR.UP) ny -= this.speed;
-    else if (this.dir === DIR.RIGHT) nx += this.speed;
-    else if (this.dir === DIR.DOWN) ny += this.speed;
-    else if (this.dir === DIR.LEFT) nx -= this.speed;
+    const { x: nx, y: ny } = stepInDirection(this.x, this.y, this.dir, this.speed);
 
     if (engine.canMoveTo(nx, ny, this)) {
       this.x = nx; this.y = ny;
@@ -364,11 +387,7 @@ export class PatrolTank extends EnemyTank {
   updatePatrol(engine) {
     if (this.isFrozen || this.isParalyzed) return;
     this.update();
-    let nx = this.x; let ny = this.y;
-    if (this.dir === DIR.UP) ny -= this.speed;
-    else if (this.dir === DIR.RIGHT) nx += this.speed;
-    else if (this.dir === DIR.DOWN) ny += this.speed;
-    else if (this.dir === DIR.LEFT) nx -= this.speed;
+    const { x: nx, y: ny } = stepInDirection(this.x, this.y, this.dir, this.speed);
 
     if (engine.canMoveTo(nx, ny, this)) {
       this.x = nx; this.y = ny;
@@ -398,9 +417,7 @@ export class KamikazeTank extends EnemyTank {
       engine.particles.createExplosion(this.x + 32, this.y + 32, '#ff3d00', 30);
       engine.audioEngine.playSfx("explosion_big");
       if (target.isPlayer && !target.hasShield && !target.isInvulnerable) {
-        if (target.playerNum === 1) { engine.lives1--; if (engine.lives1 > 0) target.respawn(8 * 64, 22 * 64); else target.alive = false; }
-        else { engine.lives2--; if (engine.lives2 > 0) target.respawn(16 * 64, 22 * 64); else target.alive = false; }
-        engine.triggerScreenShake();
+        engine.damagePlayer(target, target.playerNum === 1 ? 8 * 64 : 16 * 64, 22 * 64);
       }
       return;
     }
@@ -410,11 +427,7 @@ export class KamikazeTank extends EnemyTank {
     } else {
       this.dir = dy > 0 ? DIR.DOWN : DIR.UP;
     }
-    let nx = this.x; let ny = this.y;
-    if (this.dir === DIR.UP) ny -= this.speed;
-    else if (this.dir === DIR.RIGHT) nx += this.speed;
-    else if (this.dir === DIR.DOWN) ny += this.speed;
-    else if (this.dir === DIR.LEFT) nx -= this.speed;
+    const { x: nx, y: ny } = stepInDirection(this.x, this.y, this.dir, this.speed);
 
     if (engine.canMoveTo(nx, ny, this)) {
       this.x = nx; this.y = ny;

@@ -47,10 +47,7 @@ export const WEAPONS_DATABASE = [
 
 export class WeaponsManager {
   constructor() {
-    this.unlockedIds = new Set([1, 2, 3, 7, 8, 37]); // 預設解鎖常用技能
-    this.activeWeapons = new Set([1]); // 當前啟動技能
-    this.currentPage = 1;
-    this.pageSize = 16;
+    this.activeWeapons = new Set([1, 18, 21]); // 當前啟動技能（18/21 對應 E 鍵特殊武器：時間靜止／炸彈清屏）
 
     // 6 大核心實時切換武器
     this.wheelWeapons = [
@@ -86,14 +83,6 @@ export class WeaponsManager {
     return this.getCurrentWeapon();
   }
 
-  unlockWeapon(id) {
-    this.unlockedIds.add(id);
-  }
-
-  isUnlocked(id) {
-    return this.unlockedIds.has(id);
-  }
-
   activateWeapon(id) {
     this.activeWeapons.add(id);
   }
@@ -104,15 +93,5 @@ export class WeaponsManager {
 
   isActive(id) {
     return this.activeWeapons.has(id);
-  }
-
-  getPageItems(page = 1) {
-    this.currentPage = page;
-    const start = (page - 1) * this.pageSize;
-    return WEAPONS_DATABASE.slice(start, start + this.pageSize);
-  }
-
-  getTotalPages() {
-    return Math.ceil(WEAPONS_DATABASE.length / this.pageSize);
   }
 }

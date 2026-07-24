@@ -80,23 +80,7 @@ export class ParticleSystem {
     });
   }
 
-  // 3. 履帶壓痕與動態揚塵
-  createTrackMark(x, y, angle) {
-    this.particles.unshift({
-      x, y,
-      angle,
-      alpha: 0.45,
-      isTrackMark: true,
-      decay: 0.0015
-    });
-
-    if (this.particles.length > 250) {
-      const idx = this.particles.findIndex(p => p.isTrackMark);
-      if (idx !== -1) this.particles.splice(idx, 1);
-    }
-  }
-
-  // 4. 金屬撞擊火花
+  // 3. 金屬撞擊火花
   createSparks(x, y, color = '#ffe082', count = 10) {
     for (let i = 0; i < count; i++) {
       const angle = Math.random() * Math.PI * 2;
@@ -202,14 +186,6 @@ export class ParticleSystem {
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.radius * 0.35, 0, Math.PI * 2);
         ctx.fill();
-      } else if (p.isTrackMark) {
-        ctx.save();
-        ctx.translate(p.x, p.y);
-        ctx.rotate(p.angle);
-        ctx.fillStyle = '#10141d';
-        ctx.fillRect(-10, -6, 3, 12);
-        ctx.fillRect(7, -6, 3, 12);
-        ctx.restore();
       } else if (p.isShockwave) {
         ctx.strokeStyle = p.color;
         ctx.lineWidth = 2.5;

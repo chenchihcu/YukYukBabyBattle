@@ -934,3 +934,140 @@ html, body {
   font-weight: 700;
   box-shadow: 0 0 8px rgba(0, 229, 255, 0.3);
 }
+
+/* ===== 戰報結算：擊殺分類列表 ===== */
+.tally-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 6px;
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+
+.tally-row-label { color: var(--color-text-bright); }
+.tally-row-value { color: var(--color-gold); font-family: var(--font-tech); font-weight: 700; }
+.tally-row-empty { justify-content: center; color: var(--color-text-dim); }
+
+/* ===== 🗺️ 選擇關卡 (1~200) ===== */
+.stage-select-card {
+  width: 720px;
+  max-width: 92vw;
+  max-height: 82vh;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.editor-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding-bottom: 12px;
+}
+
+.editor-header h2 {
+  font-family: var(--font-tech);
+  font-size: 16px;
+  color: var(--color-gold);
+}
+
+.stage-select-grid {
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  gap: 8px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.stage-select-cell {
+  padding: 10px 4px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  color: var(--color-text-bright);
+  font-family: var(--font-tech);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.stage-select-cell:hover {
+  background: rgba(0, 229, 255, 0.2);
+  border-color: var(--color-cyan);
+  color: var(--color-gold);
+  transform: translateY(-2px);
+}
+
+/* ===== 🛠️ 地圖編輯器 ===== */
+.editor-card {
+  width: 880px;
+  max-width: 94vw;
+  max-height: 90vh;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.editor-body {
+  display: flex;
+  gap: 20px;
+  overflow-y: auto;
+}
+
+#map-editor-canvas {
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  cursor: crosshair;
+  flex-shrink: 0;
+  width: 480px;
+  height: 480px;
+}
+
+.editor-side {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 220px;
+}
+
+.editor-palette {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.editor-tile-btn {
+  padding: 8px 6px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-left: 4px solid var(--tile-color, #888);
+  border-radius: 6px;
+  color: var(--color-text-bright);
+  font-size: 12px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.editor-tile-btn.active {
+  background: rgba(0, 229, 255, 0.2);
+  border-color: var(--color-cyan);
+  border-left-color: var(--tile-color, #888);
+  color: var(--color-gold);
+}
+
+.editor-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.editor-hint {
+  font-size: 11px;
+  color: var(--color-text-dim);
+  line-height: 1.5;
+}

@@ -7,7 +7,7 @@ import { SymphonicAudioEngine } from './audio/SymphonicAudioEngine.js';
 import { LevelManager } from './game/LevelManager.js';
 import { WeaponsManager } from './game/WeaponsSystem.js';
 import { GameEngine } from './game/Engine.js';
-import { MapDataGenerator, MAP_SIZE } from './game/MapData.js';
+import { MapDataGenerator, MAP_SIZE, TILE } from './game/MapData.js';
 import { StorageManager } from './game/StorageManager.js';
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -32,10 +32,25 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnStartGame = document.getElementById('btn-start-game');
   const btnSelectStage = document.getElementById('btn-select-stage');
   const btnStageEditor = document.getElementById('btn-stage-editor');
+  const btnMode1p = document.getElementById('btn-mode-1p');
+  const btnMode2p = document.getElementById('btn-mode-2p');
 
   const btnPrevStage = document.getElementById('btn-prev-stage');
   const btnNextStage = document.getElementById('btn-next-stage');
   const previewStageLabel = document.getElementById('preview-stage-label');
+
+  // 選關畫面 & 地圖編輯器 DOM
+  const stageSelectOverlay = document.getElementById('stage-select-overlay');
+  const stageSelectGrid = document.getElementById('stage-select-grid');
+  const btnStageSelectClose = document.getElementById('btn-stage-select-close');
+  const mapEditorOverlay = document.getElementById('map-editor-overlay');
+  const editorCanvas = document.getElementById('map-editor-canvas');
+  const editorPaletteRow = document.getElementById('map-editor-palette');
+  const btnEditorClear = document.getElementById('btn-editor-clear');
+  const btnEditorRandom = document.getElementById('btn-editor-random');
+  const btnEditorSave = document.getElementById('btn-editor-save');
+  const btnEditorTestPlay = document.getElementById('btn-editor-test-play');
+  const btnEditorClose = document.getElementById('btn-editor-close');
 
   // 全新 武器輪盤與戰術抽屜選單 DOM
   const btnToggleWeaponWheel = document.getElementById('btn-toggle-weapon-wheel');
@@ -92,6 +107,9 @@ document.addEventListener('DOMContentLoaded', () => {
       },
       onGameOver: (data) => {
         runScoreTallyAnimation(data, false);
+      },
+      onWeaponChange: (idx) => {
+        updateWeaponSelectionUI(idx);
       }
     }
   );
@@ -287,6 +305,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // 1. 武器熱鍵欄與 Tab 圓形輪盤控制器
+  const wheelItems = document.querySelectorAll('.wheel-item'); // 快取一次，避免每次切換武器都重新查詢 DOM
   function updateWeaponSelectionUI(idx) {
     const selected = weaponsManager.selectWeaponIndex(idx);
     audioEngine.playSfx("menu_click");
@@ -299,7 +318,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // 更新 360 度輪盤
-    const wheelItems = document.querySelectorAll('.wheel-item');
     wheelItems.forEach(item => {
       const itemIdx = parseInt(item.getAttribute('data-index'), 10);
       if (itemIdx === idx) item.classList.add('selected');
@@ -319,7 +337,6 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // 圓形輪盤按鈕點擊
-  const wheelItems = document.querySelectorAll('.wheel-item');
   wheelItems.forEach(item => {
     item.addEventListener('click', () => {
       const idx = parseInt(item.getAttribute('data-index'), 10);
@@ -354,67 +371,57 @@ document.addEventListener('DOMContentLoaded', () => {
   if (btnCloseDrawer) btnCloseDrawer.addEventListener('click', () => toggleSettingsDrawer(false));
   if (drawerBackdrop) drawerBackdrop.addEventListener('click', () => toggleSettingsDrawer(false));
 
-  // 視角切換
-  if (btnPerspective2d) btnPerspective2d.addEventListener('click', () => {
-    audioEngine.playSfx("menu_click");
-    btnPerspective2d.classList.add('active');
-    btnPerspective25d.classList.remove('active');
-    gameEngine.setCameraPerspectiveMode('2D');
-  });
+  // 通用「切換按鈕群組」綁定器：點擊時互斥切換 .active 並回呼選中值
+  function bindToggleGroup(items, onSelect) {
+    items.forEach(({ btn, value }) => {
+      if (!btn) return;
+      btn.addEventListener('click', () => {
+        audioEngine.playSfx("menu_click");
+        items.forEach(it => it.btn && it.btn.classList.remove('active'));
+        btn.classList.add('active');
+        onSelect(value);
+      });
+    });
+  }
 
-  if (btnPerspective25d) btnPerspective25d.addEventListener('click', () => {
-    audioEngine.playSfx("menu_click");
-    btnPerspective25d.classList.add('active');
-    btnPerspective2d.classList.remove('active');
-    gameEngine.setCameraPerspectiveMode('2.5D');
-  });
+  // 視角切換
+  bindToggleGroup([
+    { btn: btnPerspective2d, value: '2D' },
+    { btn: btnPerspective25d, value: '2.5D' }
+  ], mode => gameEngine.setCameraPerspectiveMode(mode));
 
   // 天氣模式
-  const weatherBtns = [
-    { btn: btnWeatherNone, mode: 'none' },
-    { btn: btnWeatherRain, mode: 'rain' },
-    { btn: btnWeatherSnow, mode: 'snow' },
-    { btn: btnWeatherNight, mode: 'night' }
-  ];
-  weatherBtns.forEach(w => {
-    if (w.btn) w.btn.addEventListener('click', () => {
-      audioEngine.playSfx("menu_click");
-      weatherBtns.forEach(wb => wb.btn && wb.btn.classList.remove('active'));
-      w.btn.classList.add('active');
-      gameEngine.setWeatherMode(w.mode);
-    });
-  });
+  bindToggleGroup([
+    { btn: btnWeatherNone, value: 'none' },
+    { btn: btnWeatherRain, value: 'rain' },
+    { btn: btnWeatherSnow, value: 'snow' },
+    { btn: btnWeatherNight, value: 'night' }
+  ], mode => gameEngine.setWeatherMode(mode));
 
   // 控制模式
-  if (btnControlMouse) btnControlMouse.addEventListener('click', () => {
-    audioEngine.playSfx("menu_click");
-    btnControlMouse.classList.add('active');
-    btnControlKeys.classList.remove('active');
-    gameEngine.setControlMode('mouse_keyboard');
-  });
-
-  if (btnControlKeys) btnControlKeys.addEventListener('click', () => {
-    audioEngine.playSfx("menu_click");
-    btnControlKeys.classList.add('active');
-    btnControlMouse.classList.remove('active');
-    gameEngine.setControlMode('keyboard');
-  });
+  bindToggleGroup([
+    { btn: btnControlMouse, value: 'mouse_keyboard' },
+    { btn: btnControlKeys, value: 'keyboard' }
+  ], mode => gameEngine.setControlMode(mode));
 
   // 難易度
-  const diffBtns = [
-    { btn: btnDiffEasy, diff: 'easy' },
-    { btn: btnDiffNormal, diff: 'normal' },
-    { btn: btnDiffHard, diff: 'hard' },
-    { btn: btnDiffHell, diff: 'hell' }
-  ];
-  diffBtns.forEach(d => {
-    if (d.btn) d.btn.addEventListener('click', () => {
-      audioEngine.playSfx("menu_click");
-      diffBtns.forEach(db => db.btn && db.btn.classList.remove('active'));
-      d.btn.classList.add('active');
-      gameEngine.setDifficulty(d.diff);
-    });
+  bindToggleGroup([
+    { btn: btnDiffEasy, value: 'easy' },
+    { btn: btnDiffNormal, value: 'normal' },
+    { btn: btnDiffHard, value: 'hard' },
+    { btn: btnDiffHell, value: 'hell' }
+  ], diff => gameEngine.setDifficulty(diff));
+
+  // 1P / 2P 遊戲模式
+  bindToggleGroup([
+    { btn: btnMode1p, value: '1P' },
+    { btn: btnMode2p, value: '2P' }
+  ], mode => {
+    gameEngine.setGameMode(mode);
+    if (uiLivesP2Container) uiLivesP2Container.closest('.metric-group').style.display = mode === '2P' ? '' : 'none';
   });
+  // 預設為 1P，開場先隱藏 P2 生命 HUD（對齊 btn-mode-1p 的預設 active 狀態）
+  if (uiLivesP2Container) uiLivesP2Container.closest('.metric-group').style.display = 'none';
 
   // 聲音開關（isSoundOn 已在上方宣告）
   if (btnToggleSound) btnToggleSound.addEventListener('click', () => {
@@ -441,10 +448,11 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // 關卡預覽
+  // 關卡預覽（先確保對應 JSON 區塊已快取，讓預覽與實際進場地圖一致）
   let previewStageNum = 1;
-  function updatePreview() {
+  async function updatePreview() {
     if (previewStageLabel) previewStageLabel.innerText = `第 ${String(previewStageNum).padStart(3, '0')} 關`;
+    await levelManager.preloadJSON(previewStageNum);
     levelManager.renderPreview(previewCanvas, previewStageNum);
   }
 
@@ -458,6 +466,165 @@ document.addEventListener('DOMContentLoaded', () => {
     audioEngine.playSfx("menu_click");
     previewStageNum = previewStageNum < 200 ? previewStageNum + 1 : 1;
     updatePreview();
+  });
+
+  // ===== 選擇關卡畫面 (1~200) =====
+  function openStageSelect() {
+    audioEngine.playSfx("menu_click");
+    if (stageSelectGrid && !stageSelectGrid.children.length) {
+      for (let i = 1; i <= 200; i++) {
+        const cell = document.createElement('button');
+        cell.className = 'stage-select-cell';
+        cell.textContent = String(i).padStart(3, '0');
+        cell.addEventListener('click', () => {
+          previewStageNum = i;
+          if (stageSelectOverlay) stageSelectOverlay.classList.add('hidden');
+          startGame();
+        });
+        stageSelectGrid.appendChild(cell);
+      }
+    }
+    if (stageSelectOverlay) stageSelectOverlay.classList.remove('hidden');
+  }
+
+  if (btnSelectStage) btnSelectStage.addEventListener('click', openStageSelect);
+  if (btnStageSelectClose) btnStageSelectClose.addEventListener('click', () => {
+    audioEngine.playSfx("menu_click");
+    if (stageSelectOverlay) stageSelectOverlay.classList.add('hidden');
+  });
+
+  // ===== 地圖編輯器 (26x26 手繪地形，可儲存並直接試玩) =====
+  const EDITOR_TILES = [
+    { value: TILE.EMPTY, label: '空地', color: '#232838' },
+    { value: TILE.BRICK, label: '磚牆', color: '#c63d12' },
+    { value: TILE.STEEL, label: '鋼板', color: '#78909c' },
+    { value: TILE.WATER, label: '水域', color: '#00b0ff' },
+    { value: TILE.TREES, label: '叢林', color: '#2e7d32' },
+    { value: TILE.ICE,   label: '冰地', color: '#80deea' },
+    { value: TILE.SAND,  label: '沙地', color: '#d4a373' },
+    { value: TILE.BOOST, label: '加速', color: '#00f5d4' },
+    { value: TILE.LAVA,  label: '熔岩', color: '#ff4800' },
+    { value: TILE.BASE,  label: '基地', color: '#ffb300' },
+  ];
+
+  let editorGrid = null;
+  let selectedEditorTile = TILE.BRICK;
+  let isPaintingEditor = false;
+
+  function createEmptyEditorGrid() {
+    const grid = Array.from({ length: MAP_SIZE }, () => Array(MAP_SIZE).fill(TILE.EMPTY));
+    // 預先放置鷹徽基地磚牆，對齊 Engine 固定出生座標 (12, 23)，與正式關卡生成邏輯一致
+    grid[24][12] = TILE.BRICK; grid[24][13] = TILE.BRICK;
+    grid[25][12] = TILE.BRICK; grid[25][13] = TILE.BASE;
+    grid[23][11] = TILE.BRICK; grid[23][12] = TILE.BRICK; grid[23][13] = TILE.BRICK; grid[23][14] = TILE.BRICK;
+    grid[24][11] = TILE.BRICK; grid[24][14] = TILE.BRICK;
+    grid[25][11] = TILE.BRICK; grid[25][14] = TILE.BRICK;
+    return grid;
+  }
+
+  function renderEditorCanvas() {
+    if (!editorCanvas || !editorGrid) return;
+    const ctx = editorCanvas.getContext('2d');
+    const cell = editorCanvas.width / MAP_SIZE;
+    ctx.fillStyle = '#0b0e16';
+    ctx.fillRect(0, 0, editorCanvas.width, editorCanvas.height);
+
+    for (let r = 0; r < MAP_SIZE; r++) {
+      for (let c = 0; c < MAP_SIZE; c++) {
+        const tileVal = editorGrid[r][c];
+        if (tileVal === TILE.EMPTY) continue;
+        const tileDef = EDITOR_TILES.find(t => t.value === tileVal);
+        if (tileDef) {
+          ctx.fillStyle = tileDef.color;
+          ctx.fillRect(c * cell, r * cell, cell - 1, cell - 1);
+        }
+      }
+    }
+
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.06)';
+    ctx.beginPath();
+    for (let i = 0; i <= MAP_SIZE; i++) {
+      ctx.moveTo(i * cell, 0); ctx.lineTo(i * cell, editorCanvas.height);
+      ctx.moveTo(0, i * cell); ctx.lineTo(editorCanvas.width, i * cell);
+    }
+    ctx.stroke();
+  }
+
+  function paintEditorCellAt(clientX, clientY) {
+    if (!editorGrid) return;
+    const rect = editorCanvas.getBoundingClientRect();
+    const c = Math.floor((clientX - rect.left) / (rect.width / MAP_SIZE));
+    const r = Math.floor((clientY - rect.top) / (rect.height / MAP_SIZE));
+    if (r < 0 || r >= MAP_SIZE || c < 0 || c >= MAP_SIZE) return;
+    editorGrid[r][c] = selectedEditorTile;
+    renderEditorCanvas();
+  }
+
+  function buildEditorPalette() {
+    if (!editorPaletteRow || editorPaletteRow.children.length) return;
+    EDITOR_TILES.forEach((t, idx) => {
+      const btn = document.createElement('button');
+      btn.className = 'editor-tile-btn' + (idx === 1 ? ' active' : '');
+      btn.style.setProperty('--tile-color', t.color);
+      btn.textContent = t.label;
+      btn.addEventListener('click', () => {
+        selectedEditorTile = t.value;
+        editorPaletteRow.querySelectorAll('.editor-tile-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+      });
+      editorPaletteRow.appendChild(btn);
+    });
+  }
+
+  function openMapEditor() {
+    audioEngine.playSfx("menu_click");
+    buildEditorPalette();
+    editorGrid = StorageManager.loadCustomMap() || createEmptyEditorGrid();
+    renderEditorCanvas();
+    if (mapEditorOverlay) mapEditorOverlay.classList.remove('hidden');
+  }
+
+  if (btnStageEditor) btnStageEditor.addEventListener('click', openMapEditor);
+  if (btnEditorClose) btnEditorClose.addEventListener('click', () => {
+    audioEngine.playSfx("menu_click");
+    if (mapEditorOverlay) mapEditorOverlay.classList.add('hidden');
+  });
+
+  if (editorCanvas) {
+    editorCanvas.addEventListener('mousedown', e => {
+      isPaintingEditor = true;
+      paintEditorCellAt(e.clientX, e.clientY);
+    });
+    editorCanvas.addEventListener('mousemove', e => {
+      if (isPaintingEditor) paintEditorCellAt(e.clientX, e.clientY);
+    });
+    editorCanvas.addEventListener('contextmenu', e => e.preventDefault());
+  }
+  window.addEventListener('mouseup', () => { isPaintingEditor = false; });
+
+  if (btnEditorClear) btnEditorClear.addEventListener('click', () => {
+    audioEngine.playSfx("menu_click");
+    editorGrid = createEmptyEditorGrid();
+    renderEditorCanvas();
+  });
+
+  if (btnEditorRandom) btnEditorRandom.addEventListener('click', () => {
+    audioEngine.playSfx("menu_click");
+    editorGrid = MapDataGenerator.generateStage(Math.floor(Math.random() * 200) + 1);
+    renderEditorCanvas();
+  });
+
+  if (btnEditorSave) btnEditorSave.addEventListener('click', () => {
+    audioEngine.playSfx("menu_click");
+    StorageManager.saveCustomMap(editorGrid);
+  });
+
+  if (btnEditorTestPlay) btnEditorTestPlay.addEventListener('click', () => {
+    if (!editorGrid) return;
+    audioEngine.playSfx("menu_start");
+    levelManager.setCustomMap(editorGrid);
+    if (mapEditorOverlay) mapEditorOverlay.classList.add('hidden');
+    startGame();
   });
 
   // 全局 鍵盤熱鍵 (Q: 武器輪盤, ESC: 戰術抽屜, 1-6: 武器, P: 暫停, M: 靜音)
@@ -494,12 +661,38 @@ document.addEventListener('DOMContentLoaded', () => {
   const tallyRankBadge = document.getElementById('tally-rank-badge');
   const btnTallyContinue = document.getElementById('btn-tally-continue');
 
+  const KILL_TYPE_LABELS = { basic: '基本兵', fast: '快速兵', power: '強化兵', armor: '重裝兵', chaser: '追擊兵', patrol: '巡邏兵', kamikaze: '自爆兵' };
+
+  function renderKillTally(container, killsP1, killsP2, gameMode) {
+    if (!container) return;
+    container.innerHTML = '';
+    const addRows = (kills, ownerLabel) => {
+      Object.keys(KILL_TYPE_LABELS).forEach(type => {
+        const count = (kills && kills[type]) || 0;
+        if (count <= 0) return;
+        const row = document.createElement('div');
+        row.className = 'tally-row';
+        row.innerHTML = `<span class="tally-row-label">${ownerLabel}${KILL_TYPE_LABELS[type]}</span><span class="tally-row-value">x${count}</span>`;
+        container.appendChild(row);
+      });
+    };
+    addRows(killsP1, gameMode === '2P' ? 'P1 ' : '');
+    if (gameMode === '2P') addRows(killsP2, 'P2 ');
+    if (!container.children.length) {
+      const empty = document.createElement('div');
+      empty.className = 'tally-row tally-row-empty';
+      empty.textContent = '無擊殺紀錄';
+      container.appendChild(empty);
+    }
+  }
+
   function runScoreTallyAnimation(data, isVictory) {
     scoreTallyOverlay.classList.remove('hidden');
     const stageFormatted = String(data.stage || levelManager.currentStage).padStart(3, '0');
     if (tallyTitle) tallyTitle.innerText = isVictory ? `STAGE ${stageFormatted} CLEAR!` : `STAGE ${stageFormatted} FAILED`;
     if (tallyTotalScore) tallyTotalScore.innerText = String(data.score).padStart(7, '0');
     if (tallyRankBadge) tallyRankBadge.innerText = isVictory ? 'ACE ★★★ (S級)' : 'SOLDIER (C級)';
+    renderKillTally(tallyBodyGrid, data.killsP1, data.killsP2, gameEngine.gameMode);
   }
 
   if (btnTallyContinue) {

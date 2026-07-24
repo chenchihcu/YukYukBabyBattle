@@ -3,9 +3,9 @@
    (支援 64px Tile、三層地圖、五期主題、52x52 大地圖、平滑攝影機、2.5D Mode 7、Boss 戰與天氣)
    ========================================================= */
 
-import { TILE, MAP_SIZE, EXTENDED_MAP_SIZE, SUB_MAP_SIZE, SUB_TILE_SIZE, SNES_PALETTE, N64_PALETTE, MapDataGenerator } from './MapData.js';
-import { TILE_EXT, THEME_PALETTE, getThemeForStage } from './MapDataJSON.js';
-import { DIR, Tank, EnemyTank, ChaserTank, PatrolTank, KamikazeTank, Bullet, PowerUpItem, DestructibleProp, LandMine, EagleBase } from './Entities.js';
+import { TILE, SNES_PALETTE, MapDataGenerator } from './MapData.js';
+import { TILE_EXT } from './MapDataJSON.js';
+import { DIR, Tank, EnemyTank, ChaserTank, PatrolTank, KamikazeTank, Bullet, PowerUpItem, DestructibleProp, LandMine, EagleBase, stepInDirection } from './Entities.js';
 import { BossTank } from './Boss.js';
 import { ParticleSystem } from './Particles.js';
 
@@ -58,6 +58,10 @@ export class GameEngine {
     this.player2 = null;
     this.eagleBase = null;
     this.boss = null;
+
+    // 特殊武器 (E 鍵) 冷卻與輪替狀態，避免每幀重複觸發
+    this.specialWeaponCooldown = { 1: 0, 2: 0 };
+    this.specialWeaponToggle = { 1: false, 2: false };
 
     // 預設載入 52x52 大地圖
     this.map = this.levelManager.loadStage(1, true);
@@ -413,12 +417,18 @@ export class GameEngine {
     }
   }
 
+  // 特殊武器（E 鍵）：時間靜止與炸彈清屏輪流觸發，並各自附帶冷卻避免連續濫用
   useSpecialWeapon(playerNum = 1) {
-    if (this.weaponsManager.isActive(18)) {
+    if (this.specialWeaponCooldown[playerNum] > 0) return;
+    const useBomb = this.specialWeaponToggle[playerNum];
+
+    if (!useBomb && this.weaponsManager.isActive(18)) {
       this.enemiesOnField.forEach(e => { e.isFrozen = true; e.freezeTimer = 300; });
       if (this.boss) { this.boss.isFrozen = true; this.boss.freezeTimer = 180; }
       this.audioEngine.playSfx("time_freeze");
-    } else if (this.weaponsManager.isActive(21)) {
+      this.specialWeaponCooldown[playerNum] = 600; // 10 秒冷卻
+      this.specialWeaponToggle[playerNum] = true;
+    } else if (useBomb && this.weaponsManager.isActive(21)) {
       this.enemiesOnField.forEach(e => {
         e.alive = false;
         this.particles.createExplosion(e.x + 12, e.y + 12, '#ff3d00', 25);
@@ -427,11 +437,33 @@ export class GameEngine {
       this.enemiesRemaining = Math.max(0, this.enemiesRemaining - 5);
       this.triggerScreenShake();
       this.audioEngine.playSfx("explosion_big");
+      this.specialWeaponCooldown[playerNum] = 900; // 15 秒冷卻
+      this.specialWeaponToggle[playerNum] = false;
+    }
+  }
+
+  // 玩家受傷共用邏輯：扣血、重生或陣亡，並於雙方皆陣亡時觸發遊戲結束
+  damagePlayer(tank, respawnX, respawnY) {
+    if (tank.playerNum === 1) {
+      this.lives1--;
+      if (this.lives1 > 0) tank.respawn(respawnX, respawnY);
+      else tank.alive = false;
+    } else {
+      this.lives2--;
+      if (this.lives2 > 0) tank.respawn(respawnX, respawnY);
+      else tank.alive = false;
+    }
+    this.triggerScreenShake();
+    if (this.lives1 <= 0 && (this.gameMode === '1P' || this.lives2 <= 0)) {
+      this.gameOver();
     }
   }
 
   update() {
     if (this.state !== 'PLAYING' || this.isPaused) return;
+
+    if (this.specialWeaponCooldown[1] > 0) this.specialWeaponCooldown[1]--;
+    if (this.specialWeaponCooldown[2] > 0) this.specialWeaponCooldown[2]--;
 
     // 世界大小以 mapObstacle（26x26）× 64px 計算
     const obstMap = this.mapObstacle && this.mapObstacle.length > 0 ? this.mapObstacle : this.map;
@@ -572,14 +604,7 @@ export class GameEngine {
         // 一般敵人
         enemy.update();
         if (Math.random() < 0.02) enemy.dir = Math.floor(Math.random() * 4);
-        let nx = enemy.x;
-        let ny = enemy.y;
-        const actualSpeed = enemy.speed;
-
-        if (enemy.dir === DIR.UP) ny -= actualSpeed;
-        else if (enemy.dir === DIR.RIGHT) nx += actualSpeed;
-        else if (enemy.dir === DIR.DOWN) ny += actualSpeed;
-        else if (enemy.dir === DIR.LEFT) nx -= actualSpeed;
+        const { x: nx, y: ny } = stepInDirection(enemy.x, enemy.y, enemy.dir, enemy.speed);
 
         if (this.canMoveTo(nx, ny, enemy)) {
           enemy.x = nx;
@@ -613,9 +638,7 @@ export class GameEngine {
           this.audioEngine.playSfx('explosion_big');
           if (tank.isPlayer && !tank.hasShield && !tank.isInvulnerable) {
             // 地雷傷害玩家
-            if (tank.playerNum === 1) { this.lives1--; if (this.lives1 > 0) tank.respawn(8 * this.tileSize, 22 * this.tileSize); else tank.alive = false; }
-            else { this.lives2--; if (this.lives2 > 0) tank.respawn(16 * this.tileSize, 22 * this.tileSize); else tank.alive = false; }
-            this.triggerScreenShake();
+            this.damagePlayer(tank, tank.playerNum === 1 ? 8 * this.tileSize : 16 * this.tileSize, 22 * this.tileSize);
           } else if (!tank.isPlayer) {
             tank.alive = false;
             this.score += 100;
@@ -643,16 +666,9 @@ export class GameEngine {
 
     // 5. Boss AI (Boss Battle)
     if (this.boss && this.boss.alive && !this.boss.isFrozen) {
-      this.boss.update();
-      if (Math.random() < 0.05 && this.player1 && this.player1.alive) {
-        const dx = (this.player1.x + 12) - (this.boss.x + 48);
-        const dy = (this.player1.y + 12) - (this.boss.y + 48);
-        const bossAngle = Math.atan2(dy, dx);
-
-        // 巨型彈幕轟炸
-        [-0.4, -0.2, 0, 0.2, 0.4].forEach(off => {
-          this.bullets.push(new Bullet(this.boss.x + 48, this.boss.y + 48, 0, false, 'boss_bullet', bossAngle + off));
-        });
+      const bulletCountBefore = this.bullets.length;
+      this.boss.update(this.player1, this.player2, this.bullets, this.particles);
+      if (this.bullets.length > bulletCountBefore) {
         this.audioEngine.playSfx("shoot_laser");
       }
     }
@@ -724,7 +740,7 @@ export class GameEngine {
 
         for (let j = this.enemiesOnField.length - 1; j >= 0; j--) {
           const enemy = this.enemiesOnField[j];
-          if (enemy.alive && this.checkOverlap(b.x - 3, b.y - 3, 6, 6, enemy.x, enemy.y, 24, 24)) {
+          if (enemy.alive && this.checkOverlap(b.x - 3, b.y - 3, 6, 6, enemy.x, enemy.y, enemy.width || 64, enemy.height || 64)) {
             b.alive = false;
             enemy.hp--;
             this.particles.createExplosion(b.x, b.y, '#ff3d00', 8);
@@ -732,6 +748,9 @@ export class GameEngine {
             if (enemy.hp <= 0) {
               enemy.alive = false;
               this.score += 200;
+
+              const killer = b.shooterPlayerNum === 2 ? this.stageKillsP2 : this.stageKillsP1;
+              if (killer && killer[enemy.enemyType] !== undefined) killer[enemy.enemyType]++;
 
               // 15% 機率掉落道具
               if (Math.random() < 0.15) {
@@ -758,18 +777,7 @@ export class GameEngine {
             } else {
               this.particles.createExplosion(p.x + 12, p.y + 12, '#ff1744', 20);
               this.audioEngine.playSfx("explosion_tank");
-              if (p.playerNum === 1) {
-                this.lives1--;
-                if (this.lives1 > 0) p.respawn(21 * this.tileSize, 37 * this.tileSize);
-                else p.alive = false;
-              } else {
-                this.lives2--;
-                if (this.lives2 > 0) p.respawn(29 * this.tileSize, 37 * this.tileSize);
-                else p.alive = false;
-              }
-              if (this.lives1 <= 0 && (this.gameMode === '1P' || (this.lives2 <= 0))) {
-                this.gameOver();
-              }
+              this.damagePlayer(p, p.playerNum === 1 ? 21 * this.tileSize : 29 * this.tileSize, 37 * this.tileSize);
             }
           }
         });
@@ -801,15 +809,17 @@ export class GameEngine {
   canMoveTo(x, y, entity) {
     const gridCols = this.map ? this.map.length : 52;
     const subMapRows = this.subMap ? this.subMap.length : 104;
+    const w = (entity && entity.width) || this.tileSize;
+    const h = (entity && entity.height) || this.tileSize;
 
-    if (x < 0 || x + 24 > gridCols * this.tileSize || y < 0 || y + 24 > gridCols * this.tileSize) {
+    if (x < 0 || x + w > gridCols * this.tileSize || y < 0 || y + h > gridCols * this.tileSize) {
       return false;
     }
 
     const subC1 = Math.floor(x / this.subTileSize);
-    const subC2 = Math.floor((x + 23) / this.subTileSize);
+    const subC2 = Math.floor((x + w - 1) / this.subTileSize);
     const subR1 = Math.floor(y / this.subTileSize);
-    const subR2 = Math.floor((y + 23) / this.subTileSize);
+    const subR2 = Math.floor((y + h - 1) / this.subTileSize);
 
     for (let r = subR1; r <= subR2; r++) {
       for (let c = subC1; c <= subC2; c++) {
@@ -857,7 +867,8 @@ export class GameEngine {
     } else if (type === 'life') {
       if (player.playerNum === 1) this.lives1++; else this.lives2++;
     } else if (type === 'laser') {
-      player.weaponType = 'laser';
+      this.weaponsManager.selectWeaponIndex(4); // wheelWeapons[4] = 貫穿雷射
+      if (this.uiCallbacks.onWeaponChange) this.uiCallbacks.onWeaponChange(4);
     } else if (type === 'coin') {
       this.score += 1000;
     }
@@ -882,7 +893,12 @@ export class GameEngine {
     this.audioEngine.stopBgm();
     this.audioEngine.playSfx("game_over");
     if (this.uiCallbacks.onGameOver) {
-      this.uiCallbacks.onGameOver({ score: this.score });
+      this.uiCallbacks.onGameOver({
+        stage: this.levelManager.currentStage,
+        score: this.score,
+        killsP1: this.stageKillsP1,
+        killsP2: this.stageKillsP2
+      });
     }
   }
 
@@ -900,10 +916,16 @@ export class GameEngine {
     const gridCols = this.map.length;
     const subMapRows = this.subMap ? this.subMap.length : 104;
 
+    // 只繪製攝影機視野內（含 1 格緩衝）的地形範圍，避免每幀掃描整張大地圖
+    const viewCol1 = Math.max(0, Math.floor(this.camera.x / this.subTileSize) - 1);
+    const viewCol2 = Math.min(subMapRows, Math.ceil((this.camera.x + this.canvas.width) / this.subTileSize) + 1);
+    const viewRow1 = Math.max(0, Math.floor(this.camera.y / this.subTileSize) - 1);
+    const viewRow2 = Math.min(subMapRows, Math.ceil((this.camera.y + this.canvas.height) / this.subTileSize) + 1);
+
     // 1. 繪製 52x52 地形與多元元素 (SAND, BOOST, LAVA, PORTAL)
-    for (let r = 0; r < subMapRows; r++) {
+    for (let r = viewRow1; r < viewRow2; r++) {
       if (!this.subMap[r]) continue;
-      for (let c = 0; c < subMapRows; c++) {
+      for (let c = viewCol1; c < viewCol2; c++) {
         const t = this.subMap[r][c];
         const px = c * this.subTileSize;
         const py = r * this.subTileSize;
@@ -967,9 +989,9 @@ export class GameEngine {
     this.particles.render(this.ctx);
 
     // 8. 繪製 叢林遮蔽層 (TREES)
-    for (let r = 0; r < subMapRows; r++) {
+    for (let r = viewRow1; r < viewRow2; r++) {
       if (!this.subMap[r]) continue;
-      for (let c = 0; c < subMapRows; c++) {
+      for (let c = viewCol1; c < viewCol2; c++) {
         if (this.subMap[r][c] === TILE.TREES) {
           this.ctx.fillStyle = 'rgba(46, 125, 50, 0.85)';
           this.ctx.fillRect(c * this.subTileSize, r * this.subTileSize, this.subTileSize, this.subTileSize);

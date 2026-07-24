@@ -3,6 +3,7 @@
    ========================================================= */
 
 const STORAGE_KEY = 'TANK_FRONT_1988_SAVE_DATA';
+const CUSTOM_MAP_KEY = 'TANK_FRONT_1988_CUSTOM_MAP';
 
 export class StorageManager {
   static getSaveData() {
@@ -51,5 +52,24 @@ export class StorageManager {
     if (stageNum > data.maxUnlockedStage) {
       this.save({ maxUnlockedStage: Math.min(200, stageNum) });
     }
+  }
+
+  // ===== 地圖編輯器：自訂地圖儲存/讀取 =====
+  static saveCustomMap(grid) {
+    try {
+      localStorage.setItem(CUSTOM_MAP_KEY, JSON.stringify(grid));
+    } catch (e) {
+      console.warn("StorageManager: 無法儲存自訂地圖", e);
+    }
+  }
+
+  static loadCustomMap() {
+    try {
+      const data = localStorage.getItem(CUSTOM_MAP_KEY);
+      if (data) return JSON.parse(data);
+    } catch (e) {
+      console.warn("StorageManager: 無法讀取自訂地圖", e);
+    }
+    return null;
   }
 }

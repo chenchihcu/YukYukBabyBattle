@@ -1,4 +1,4 @@
-import { MapDataGenerator, TILE, MAP_SIZE, EXTENDED_MAP_SIZE } from './MapData.js';
+import { MapDataGenerator, TILE, MAP_SIZE } from './MapData.js';
 import { TILE_EXT, getThemeForStage } from './MapDataJSON.js';
 
 export class LevelManager {
@@ -67,57 +67,20 @@ export class LevelManager {
     return cache.stages.find(s => s.stage === stageNum) || null;
   }
 
-  // ===== 將 JSON 地圖的 obstacle 層轉換為舊版相容 2D 陣列（給 Engine 用）=====
-  _convertObstacleToLegacy(stageData) {
-    if (!stageData) return null;
-    return stageData.obstacle;
-  }
-
-  // ===== 非同步載入關卡（優先使用 JSON，失敗則回退程序化）=====
-  async loadStageAsync(stageNum, extended = true) {
-    this.currentStage = Math.max(1, Math.min(this.maxStages, stageNum));
-    this.isExtendedMode = extended;
-    this.currentTheme = getThemeForStage(stageNum).name;
-
-    if (this.customMap) {
-      this.currentMap = JSON.parse(JSON.stringify(this.customMap));
-      return this.currentMap;
-    }
-
-    // 嘗試載入 JSON
-    await this.preloadJSON(stageNum);
-    const stageData = this._getStageFromCache(stageNum);
-
-    if (stageData) {
-      // 存入三層資料
-      this.currentFloor    = stageData.floor    || [];
-      this.currentObstacle = stageData.obstacle || [];
-      this.currentRoof     = stageData.roof     || [];
-      // currentMap = obstacle 層（向下相容碰撞偵測）
-      this.currentMap = this.currentObstacle;
-    } else {
-      // 回退：程序化生成
-      this.currentMap = extended
-        ? MapDataGenerator.generateExtendedStage(stageNum)
-        : MapDataGenerator.generateStage(stageNum);
-      this.currentFloor    = [];
-      this.currentObstacle = this.currentMap;
-      this.currentRoof     = [];
-    }
-
-    return this.currentMap;
-  }
-
-  // ===== 同步載入（向下相容舊呼叫方式）=====
+  // ===== 同步載入關卡（優先使用自訂地圖，其次 JSON，最後回退程序化生成）=====
   loadStage(stageNum, extended = true) {
     this.currentStage = Math.max(1, Math.min(this.maxStages, stageNum));
     this.isExtendedMode = extended;
     this.currentTheme = getThemeForStage(stageNum).name;
 
-    if (this.customMap && stageNum === this.currentStage) {
+    if (this.customMap) {
+      // 自訂地圖為一次性：套用後立即清除，避免污染後續關卡切換
       this.currentMap = JSON.parse(JSON.stringify(this.customMap));
+      this.currentObstacle = this.currentMap;
+      this.currentFloor = [];
+      this.currentRoof = [];
+      this.customMap = null;
     } else {
-      // 同步嘗試從快取取得 JSON
       const stageData = this._getStageFromCache(stageNum);
       if (stageData) {
         this.currentFloor    = stageData.floor    || [];
@@ -137,30 +100,9 @@ export class LevelManager {
     return this.currentMap;
   }
 
+  // ===== 設定地圖編輯器產生的自訂地圖（下次 loadStage 消費一次後即清除）=====
   setCustomMap(mapGrid) {
     this.customMap = JSON.parse(JSON.stringify(mapGrid));
-    this.currentMap = JSON.parse(JSON.stringify(mapGrid));
-    return this.currentMap;
-  }
-
-  nextStage() {
-    this.customMap = null;
-    if (this.currentStage < this.maxStages) {
-      this.currentStage++;
-    } else {
-      this.currentStage = 1;
-    }
-    return this.loadStage(this.currentStage, this.isExtendedMode);
-  }
-
-  prevStage() {
-    this.customMap = null;
-    if (this.currentStage > 1) {
-      this.currentStage--;
-    } else {
-      this.currentStage = this.maxStages;
-    }
-    return this.loadStage(this.currentStage, this.isExtendedMode);
   }
 
   // ===== 繪製全息雷達迷你地圖 (支援 52x52 與 26x26) =====
@@ -227,35 +169,40 @@ export class LevelManager {
   }
 
   // ===== 繪製左側「下一關預覽」Canvas (160x120) =====
+  // 優先讀取實際遊玩用的 JSON 關卡資料（與 startStage 讀到的是同一份），
+  // 避免預覽畫面與真正進場的地圖不一致；JSON 尚未載入時才回退程序化生成僅供示意。
   renderPreview(canvas, targetStage) {
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     const w = canvas.width;
     const h = canvas.height;
-    const previewGrid = MapDataGenerator.generateStage(targetStage);
-    const tileSize = w / MAP_SIZE;
+    const stageData = this._getStageFromCache(targetStage);
+    const previewGrid = stageData ? stageData.obstacle : MapDataGenerator.generateStage(targetStage);
+    const gridSize = previewGrid.length || MAP_SIZE;
+    const tileSize = w / gridSize;
 
     ctx.fillStyle = '#080c14';
     ctx.fillRect(0, 0, w, h);
 
-    for (let r = 0; r < MAP_SIZE; r++) {
-      for (let c = 0; c < MAP_SIZE; c++) {
+    for (let r = 0; r < gridSize; r++) {
+      if (!previewGrid[r]) continue;
+      for (let c = 0; c < gridSize; c++) {
         const tile = previewGrid[r][c];
         if (tile === TILE.BRICK) {
           ctx.fillStyle = '#bf360c';
-          ctx.fillRect(c * tileSize, (r / MAP_SIZE) * h, tileSize, tileSize * (h / w));
+          ctx.fillRect(c * tileSize, (r / gridSize) * h, tileSize, tileSize * (h / w));
         } else if (tile === TILE.STEEL) {
           ctx.fillStyle = '#78909c';
-          ctx.fillRect(c * tileSize, (r / MAP_SIZE) * h, tileSize, tileSize * (h / w));
+          ctx.fillRect(c * tileSize, (r / gridSize) * h, tileSize, tileSize * (h / w));
         } else if (tile === TILE.WATER) {
           ctx.fillStyle = '#0277bd';
-          ctx.fillRect(c * tileSize, (r / MAP_SIZE) * h, tileSize, tileSize * (h / w));
+          ctx.fillRect(c * tileSize, (r / gridSize) * h, tileSize, tileSize * (h / w));
         } else if (tile === TILE.TREES) {
           ctx.fillStyle = '#2e7d32';
-          ctx.fillRect(c * tileSize, (r / MAP_SIZE) * h, tileSize, tileSize * (h / w));
+          ctx.fillRect(c * tileSize, (r / gridSize) * h, tileSize, tileSize * (h / w));
         } else if (tile === TILE.BASE) {
           ctx.fillStyle = '#ffb300';
-          ctx.fillRect(c * tileSize, (r / MAP_SIZE) * h, tileSize, tileSize * (h / w));
+          ctx.fillRect(c * tileSize, (r / gridSize) * h, tileSize, tileSize * (h / w));
         }
       }
     }
