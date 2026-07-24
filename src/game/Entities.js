@@ -17,10 +17,10 @@ export class Tank {
   constructor(x, y, isPlayer = false, playerNum = 1) {
     this.x = x;
     this.y = y;
-    this.width = 24;
-    this.height = 24;
+    this.width = 64;
+    this.height = 64;
     this.dir = DIR.UP;
-    this.speed = isPlayer ? 2.2 : 1.4;
+    this.speed = (isPlayer ? 2.2 : 1.4) * (64 / 24);
     this.isPlayer = isPlayer;
     this.playerNum = playerNum; // 1: Player 1, 2: Player 2
     this.alive = true;
@@ -105,12 +105,13 @@ export class Tank {
       ctx.save();
       ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
       ctx.beginPath();
-      ctx.ellipse(this.x + 15, this.y + 18, 14, 12, 0, 0, Math.PI * 2);
+      ctx.ellipse(this.x + 40, this.y + 48, 37, 32, 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
     }
 
-    ctx.translate(this.x + 12, this.y + 12);
+    ctx.translate(this.x + 32, this.y + 32);
+    ctx.scale(64 / 24, 64 / 24); // 2.66 倍縮放以無縫銜接原 24px 繪圖代碼
 
     // 1. 繪製履帶底盤 (隨車身方向旋轉)
     ctx.save();
@@ -256,12 +257,12 @@ export class Tank {
       ctx.shadowColor = '#00e5ff';
       ctx.shadowBlur = 8;
       ctx.beginPath();
-      ctx.arc(this.x + 12, this.y + 12, 17, 0, Math.PI * 2);
+      ctx.arc(0, 0, 17, 0, Math.PI * 2);
       ctx.stroke();
 
       // 旋轉高光點
-      const sx = this.x + 12 + Math.cos(shieldTime) * 17;
-      const sy = this.y + 12 + Math.sin(shieldTime) * 17;
+      const sx = Math.cos(shieldTime) * 17;
+      const sy = Math.sin(shieldTime) * 17;
       ctx.fillStyle = '#ffffff';
       ctx.beginPath();
       ctx.arc(sx, sy, 3, 0, Math.PI * 2);
@@ -273,10 +274,10 @@ export class Tank {
     if (this.isFrozen) {
       ctx.save();
       ctx.fillStyle = 'rgba(128, 222, 234, 0.4)';
-      ctx.fillRect(this.x - 2, this.y - 2, 28, 28);
+      ctx.fillRect(-14, -14, 28, 28);
       ctx.strokeStyle = '#e0f7fa';
       ctx.lineWidth = 1;
-      ctx.strokeRect(this.x - 2, this.y - 2, 28, 28);
+      ctx.strokeRect(-14, -14, 28, 28);
       ctx.restore();
     }
 
@@ -285,16 +286,17 @@ export class Tank {
       ctx.save();
       ctx.strokeStyle = (Math.floor(Date.now() / 80) % 2 === 0) ? '#ffe082' : '#00e5ff';
       ctx.lineWidth = 2;
-      ctx.strokeRect(this.x - 1, this.y - 1, 26, 26);
+      ctx.strokeRect(-13, -13, 26, 26);
 
       // 電磁火花
       const time = Date.now() / 50;
       ctx.fillStyle = '#ffffff';
       ctx.beginPath();
-      ctx.arc(this.x + 12 + Math.cos(time) * 14, this.y + 12 + Math.sin(time) * 14, 2, 0, Math.PI * 2);
+      ctx.arc(Math.cos(time) * 14, Math.sin(time) * 14, 2, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
     }
+    ctx.restore(); // 取消 scale 與 translate
   }
 }
 
@@ -304,18 +306,121 @@ export class EnemyTank extends Tank {
     super(x, y, false);
     this.enemyType = enemyType;
     this.dir = DIR.DOWN;
+    const scale = 64 / 24;
 
     if (enemyType === 'fast') {
-      this.speed = 2.4;
+      this.speed = 2.4 * scale;
       this.hp = 1;
     } else if (enemyType === 'power') {
-      this.speed = 1.2;
+      this.speed = 1.2 * scale;
       this.hp = 1;
     } else if (enemyType === 'armor') {
-      this.speed = 1.0;
+      this.speed = 1.0 * scale;
       this.hp = 3; // 重裝坦克需要 3 槍
     }
     this.maxHp = this.hp;
+  }
+}
+
+// ===== 新特化敵軍 AI =====
+export class ChaserTank extends EnemyTank {
+  constructor(x, y) {
+    super(x, y, 'fast');
+    this.enemyType = 'chaser';
+    this.isChaser = true;
+    this.speed = 1.8 * (64 / 24);
+  }
+  updateChaser(target, engine) {
+    if (this.isFrozen || this.isParalyzed) return;
+    this.update();
+    const dx = target.x - this.x;
+    const dy = target.y - this.y;
+    if (Math.abs(dx) > Math.abs(dy)) {
+      this.dir = dx > 0 ? DIR.RIGHT : DIR.LEFT;
+    } else {
+      this.dir = dy > 0 ? DIR.DOWN : DIR.UP;
+    }
+    let nx = this.x; let ny = this.y;
+    if (this.dir === DIR.UP) ny -= this.speed;
+    else if (this.dir === DIR.RIGHT) nx += this.speed;
+    else if (this.dir === DIR.DOWN) ny += this.speed;
+    else if (this.dir === DIR.LEFT) nx -= this.speed;
+
+    if (engine.canMoveTo(nx, ny, this)) {
+      this.x = nx; this.y = ny;
+    } else {
+      this.dir = Math.floor(Math.random() * 4); // 繞道
+    }
+  }
+}
+
+export class PatrolTank extends EnemyTank {
+  constructor(x, y) {
+    super(x, y, 'armor');
+    this.enemyType = 'patrol';
+    this.isPatrol = true;
+    this.speed = 1.2 * (64 / 24);
+  }
+  updatePatrol(engine) {
+    if (this.isFrozen || this.isParalyzed) return;
+    this.update();
+    let nx = this.x; let ny = this.y;
+    if (this.dir === DIR.UP) ny -= this.speed;
+    else if (this.dir === DIR.RIGHT) nx += this.speed;
+    else if (this.dir === DIR.DOWN) ny += this.speed;
+    else if (this.dir === DIR.LEFT) nx -= this.speed;
+
+    if (engine.canMoveTo(nx, ny, this)) {
+      this.x = nx; this.y = ny;
+    } else {
+      this.dir = (this.dir + 1) % 4; // 碰壁向右轉
+    }
+  }
+}
+
+export class KamikazeTank extends EnemyTank {
+  constructor(x, y) {
+    super(x, y, 'basic');
+    this.enemyType = 'kamikaze';
+    this.isKamikaze = true;
+    this.speed = 3.0 * (64 / 24);
+  }
+  updateKamikaze(target, engine) {
+    if (this.isFrozen || this.isParalyzed) return;
+    this.update();
+    const dx = target.x - this.x;
+    const dy = target.y - this.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    
+    // 自爆檢測
+    if (dist < 80) {
+      this.alive = false;
+      engine.particles.createExplosion(this.x + 32, this.y + 32, '#ff3d00', 30);
+      engine.audioEngine.playSfx("explosion_big");
+      if (target.isPlayer && !target.hasShield && !target.isInvulnerable) {
+        if (target.playerNum === 1) { engine.lives1--; if (engine.lives1 > 0) target.respawn(8 * 64, 22 * 64); else target.alive = false; }
+        else { engine.lives2--; if (engine.lives2 > 0) target.respawn(16 * 64, 22 * 64); else target.alive = false; }
+        engine.triggerScreenShake();
+      }
+      return;
+    }
+
+    if (Math.abs(dx) > Math.abs(dy)) {
+      this.dir = dx > 0 ? DIR.RIGHT : DIR.LEFT;
+    } else {
+      this.dir = dy > 0 ? DIR.DOWN : DIR.UP;
+    }
+    let nx = this.x; let ny = this.y;
+    if (this.dir === DIR.UP) ny -= this.speed;
+    else if (this.dir === DIR.RIGHT) nx += this.speed;
+    else if (this.dir === DIR.DOWN) ny += this.speed;
+    else if (this.dir === DIR.LEFT) nx -= this.speed;
+
+    if (engine.canMoveTo(nx, ny, this)) {
+      this.x = nx; this.y = ny;
+    } else {
+      this.dir = Math.floor(Math.random() * 4);
+    }
   }
 }
 
@@ -328,9 +433,10 @@ export class Bullet {
     this.isPlayer = isPlayer;
     this.shooterPlayerNum = shooterPlayerNum; // 1: P1, 2: P2
     this.weaponType = weaponType;
-    this.speed = weaponType === 'laser' ? 12 : (weaponType === 'fast' ? 8 : 5.5);
-    this.width = weaponType === 'laser' ? 4 : 6;
-    this.height = weaponType === 'laser' ? 16 : 6;
+    const scale = 64 / 24;
+    this.speed = (weaponType === 'laser' ? 12 : (weaponType === 'fast' ? 8 : 5.5)) * scale;
+    this.width = (weaponType === 'laser' ? 4 : 6) * scale;
+    this.height = (weaponType === 'laser' ? 16 : 6) * scale;
     this.alive = true;
     this.ricochetCount = weaponType === 'ricochet' ? 2 : 0;
     this.angle = angle;
@@ -397,8 +503,8 @@ export class PowerUpItem {
   constructor(x, y, type) {
     this.x = x;
     this.y = y;
-    this.width = 24;
-    this.height = 24;
+    this.width = 64;
+    this.height = 64;
     this.type = type; // star, shield, freeze, bomb, clock, base_wall, life, laser
     this.alive = true;
     this.flashTimer = 0;
@@ -408,6 +514,8 @@ export class PowerUpItem {
     if (!this.alive) return;
     this.flashTimer++;
     ctx.save();
+    ctx.translate(this.x, this.y);
+    ctx.scale(64 / 24, 64 / 24);
 
     // 16-bit 寶箱金屬框底座
     const isGlow = Math.floor(this.flashTimer / 8) % 2 === 0;
@@ -415,15 +523,15 @@ export class PowerUpItem {
     const bgDark = '#10141d';
 
     ctx.fillStyle = bgDark;
-    ctx.fillRect(this.x, this.y, 24, 24);
+    ctx.fillRect(0, 0, 24, 24);
 
     // 立體金屬雙重邊框
     ctx.strokeStyle = borderGold;
     ctx.lineWidth = 2;
-    ctx.strokeRect(this.x + 1, this.y + 1, 22, 22);
+    ctx.strokeRect(1, 1, 22, 22);
 
     ctx.fillStyle = isGlow ? 'rgba(255, 235, 59, 0.15)' : 'rgba(0, 0, 0, 0.4)';
-    ctx.fillRect(this.x + 3, this.y + 3, 18, 18);
+    ctx.fillRect(3, 3, 18, 18);
 
     // 16-bit 像素圖示渲染
     ctx.font = '14px "Press Start 2P", sans-serif';
@@ -438,67 +546,118 @@ export class PowerUpItem {
     else if (this.type === 'laser') icon = '⚡';
     else if (this.type === 'base_wall') icon = '🏰';
 
-    ctx.fillText(icon, this.x + 12, this.y + 13);
+    ctx.fillText(icon, 12, 13);
     ctx.restore();
   }
 }
 
 // ===== 16-bit 鷹徽基地 Eagle Base =====
 export class EagleBase {
-  constructor(x = 12 * 24, y = 24 * 24) {
+  constructor(x = 12 * 64, y = 24 * 64) {
     this.x = x;
     this.y = y;
-    this.width = 48;
-    this.height = 48;
+    this.width = 128; // 佔地 2x2 個 64px 磁磚
+    this.height = 128;
     this.alive = true;
   }
 
   render(ctx) {
     ctx.save();
+    ctx.translate(this.x, this.y);
+    ctx.scale(128 / 48, 128 / 48); // 從原 48px 放大到 128px
     if (this.alive) {
       // 16-bit 石材與鍍金鷹徽
       ctx.fillStyle = '#263238';
-      ctx.fillRect(this.x, this.y, 48, 48);
+      ctx.fillRect(0, 0, 48, 48);
       ctx.fillStyle = '#37474f';
-      ctx.fillRect(this.x + 2, this.y + 2, 44, 44);
+      ctx.fillRect(2, 2, 44, 44);
 
       // 黃金基座
       ctx.fillStyle = SNES_PALETTE.GOLD_BASE;
-      ctx.fillRect(this.x + 6, this.y + 6, 36, 36);
+      ctx.fillRect(6, 6, 36, 36);
       ctx.fillStyle = SNES_PALETTE.GOLD_HIGHLIGHT;
-      ctx.fillRect(this.x + 6, this.y + 6, 36, 4);
-      ctx.fillRect(this.x + 6, this.y + 6, 4, 36);
+      ctx.fillRect(6, 6, 36, 4);
+      ctx.fillRect(6, 6, 4, 36);
 
       // 經典立體老鷹羽翼圖騰
       ctx.fillStyle = '#b71c1c';
       ctx.beginPath();
-      ctx.moveTo(this.x + 24, this.y + 10);
-      ctx.lineTo(this.x + 40, this.y + 38);
-      ctx.lineTo(this.x + 8, this.y + 38);
+      ctx.moveTo(24, 10);
+      ctx.lineTo(40, 38);
+      ctx.lineTo(8, 38);
       ctx.fill();
 
       // 老鷹頭部寶石
       ctx.fillStyle = '#ffffff';
-      ctx.fillRect(this.x + 23, this.y + 14, 2, 4);
+      ctx.fillRect(23, 14, 2, 4);
     } else {
       // 殘破瓦礫廢墟狀態
       ctx.fillStyle = '#1c2536';
-      ctx.fillRect(this.x, this.y, 48, 48);
+      ctx.fillRect(0, 0, 48, 48);
       ctx.fillStyle = '#424242';
-      ctx.fillRect(this.x + 4, this.y + 4, 40, 40);
+      ctx.fillRect(4, 4, 40, 40);
 
       // 碎石瓦礫
       ctx.fillStyle = '#757575';
-      ctx.fillRect(this.x + 8, this.y + 12, 12, 10);
-      ctx.fillRect(this.x + 26, this.y + 24, 14, 12);
-      ctx.fillRect(this.x + 14, this.y + 30, 8, 8);
+      ctx.fillRect(8, 12, 12, 10);
+      ctx.fillRect(26, 24, 14, 12);
+      ctx.fillRect(14, 30, 8, 8);
 
       // 毀滅標記
       ctx.font = '22px sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText('💀', this.x + 24, this.y + 24);
+      ctx.fillText('💀', 24, 24);
     }
+    ctx.restore();
+  }
+}
+
+// ===== 場景可破壞物件 (油桶/樹樁/小屋) =====
+export class DestructibleProp {
+  constructor(x, y, type = 'barrel') {
+    this.x = x;
+    this.y = y;
+    this.width = 64;
+    this.height = 64;
+    this.type = type;
+    this.alive = true;
+  }
+  render(ctx) {
+    if (!this.alive) return;
+    ctx.save();
+    ctx.translate(this.x, this.y);
+    if (this.type === 'barrel') {
+      ctx.fillStyle = '#ff6820'; ctx.fillRect(16, 16, 32, 32);
+      ctx.fillStyle = '#a33000'; ctx.fillRect(16, 16, 32, 4); ctx.fillRect(16, 44, 32, 4);
+    } else if (this.type === 'stump') {
+      ctx.fillStyle = '#4a2c10'; ctx.fillRect(12, 24, 40, 32);
+      ctx.fillStyle = '#d2a679'; ctx.beginPath(); ctx.ellipse(32, 24, 20, 10, 0, 0, Math.PI*2); ctx.fill();
+    } else if (this.type === 'shack') {
+      ctx.fillStyle = '#5c4033'; ctx.fillRect(8, 24, 48, 36);
+      ctx.fillStyle = '#26140b'; ctx.beginPath(); ctx.moveTo(4, 24); ctx.lineTo(32, 4); ctx.lineTo(60, 24); ctx.fill();
+    }
+    ctx.restore();
+  }
+}
+
+// ===== 隱藏地雷 =====
+export class LandMine {
+  constructor(x, y) {
+    this.x = x;
+    this.y = y;
+    this.width = 64;
+    this.height = 64;
+    this.alive = true;
+  }
+  render(ctx) {
+    if (!this.alive) return;
+    // 只有極淡的痕跡
+    ctx.save();
+    ctx.fillStyle = 'rgba(200, 50, 0, 0.1)';
+    ctx.beginPath();
+    ctx.arc(this.x + 32, this.y + 32, 12, 0, Math.PI * 2);
+    ctx.fill();
     ctx.restore();
   }
 }

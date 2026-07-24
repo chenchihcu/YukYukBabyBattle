@@ -478,10 +478,10 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // 開始遊戲
-  function startGame() {
+  async function startGame() {
     audioEngine.playSfx("menu_start");
     overlay.classList.add('hidden');
-    gameEngine.startStage(previewStageNum);
+    await gameEngine.startStage(previewStageNum);
   }
 
   if (btnStartGame) btnStartGame.addEventListener('click', () => startGame());
@@ -503,13 +503,13 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   if (btnTallyContinue) {
-    btnTallyContinue.addEventListener('click', () => {
+    btnTallyContinue.addEventListener('click', async () => {
       audioEngine.playSfx("menu_click");
       scoreTallyOverlay.classList.add('hidden');
       if (gameEngine.state === 'VICTORY') {
-        gameEngine.startStage(levelManager.currentStage + 1);
+        await gameEngine.startStage(levelManager.currentStage + 1);
       } else {
-        gameEngine.startStage(levelManager.currentStage);
+        await gameEngine.startStage(levelManager.currentStage);
       }
     });
   }

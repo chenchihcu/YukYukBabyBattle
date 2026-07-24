@@ -1,10 +1,11 @@
 /* =========================================================
    Engine.js - 主遊戲 Canvas 60FPS 視窗滿版與攝影機引擎
-   (支援 52x52 大地圖、平滑攝影機、2.5D Mode 7、Boss 戰與天氣)
+   (支援 64px Tile、三層地圖、五期主題、52x52 大地圖、平滑攝影機、2.5D Mode 7、Boss 戰與天氣)
    ========================================================= */
 
 import { TILE, MAP_SIZE, EXTENDED_MAP_SIZE, SUB_MAP_SIZE, SUB_TILE_SIZE, SNES_PALETTE, N64_PALETTE, MapDataGenerator } from './MapData.js';
-import { DIR, Tank, EnemyTank, Bullet, PowerUpItem, EagleBase } from './Entities.js';
+import { TILE_EXT, THEME_PALETTE, getThemeForStage } from './MapDataJSON.js';
+import { DIR, Tank, EnemyTank, ChaserTank, PatrolTank, KamikazeTank, Bullet, PowerUpItem, DestructibleProp, LandMine, EagleBase } from './Entities.js';
 import { BossTank } from './Boss.js';
 import { ParticleSystem } from './Particles.js';
 
@@ -17,8 +18,8 @@ export class GameEngine {
     this.weaponsManager = weaponsManager;
     this.uiCallbacks = uiCallbacks || {};
 
-    this.tileSize = 24; // 大格 24px
-    this.subTileSize = 12; // 1/4 微觀小格 12px
+    this.tileSize = 64;     // 大格 64px（升級自 24px）
+    this.subTileSize = 32;   // 1/2 微觀小格 32px（升級自 12px）
 
     // 視窗滿版 100vw x 100vh
     this.canvas.width = window.innerWidth;
@@ -41,7 +42,17 @@ export class GameEngine {
     this.enemiesOnField = [];
     this.bullets = [];
     this.powerUps = [];
+    this.props = [];        // 可破壞物件（油桶/樹樁/小屋）
+    this.mines = [];        // 地雷
     this.particles = new ParticleSystem();
+
+    // 三層地圖
+    this.mapFloor    = [];  // 地面層（主題底材）
+    this.mapObstacle = [];  // 障礙層（碰撞用）
+    this.mapRoof     = [];  // 屋頂裝飾層
+    this.currentTheme = 'VILLAGE'; // 五期主題名稱
+    this._waterAnim = 0;    // 水域動畫計數器
+    this._lavaAnim  = 0;    // 熔岩動畫計數器
 
     this.player1 = null;
     this.player2 = null;
@@ -265,10 +276,19 @@ export class GameEngine {
     }
   }
 
-  startStage(stageNum) {
-    // 載入 52x52 擴展戰術大地圖
-    this.map = this.levelManager.loadStage(stageNum, true);
-    this.subMap = MapDataGenerator.convertToSubMap(this.map);
+  async startStage(stageNum) {
+    // 非同步載入 JSON 地圖（滿八枸地圖群即回覆程序化生成）
+    await this.levelManager.preloadJSON(stageNum);
+    this.map = this.levelManager.loadStage(stageNum, false); // 26x26 核心地圖
+
+    // 載入三層地圖資料
+    this.mapFloor    = this.levelManager.currentFloor    || [];
+    this.mapObstacle = this.levelManager.currentObstacle || this.map;
+    this.mapRoof     = this.levelManager.currentRoof     || [];
+    this.currentTheme = this.levelManager.currentTheme || 'VILLAGE';
+
+    // subMap 用 obstacle 層生成（碰撞用）
+    this.subMap = MapDataGenerator.convertToSubMap(this.mapObstacle);
 
     this.score = this.score || 0;
     if (this.lives1 <= 0) this.lives1 = 1;
@@ -279,18 +299,48 @@ export class GameEngine {
     this.enemiesOnField = [];
     this.bullets = [];
     this.powerUps = [];
+    this.props = [];
+    this.mines = [];
 
-    this.stageKillsP1 = { basic: 0, fast: 0, power: 0, armor: 0 };
-    this.stageKillsP2 = { basic: 0, fast: 0, power: 0, armor: 0 };
+    this.stageKillsP1 = { basic: 0, fast: 0, power: 0, armor: 0, chaser: 0, patrol: 0, kamikaze: 0 };
+    this.stageKillsP2 = { basic: 0, fast: 0, power: 0, armor: 0, chaser: 0, patrol: 0, kamikaze: 0 };
 
-    // 在 52x52 大地圖的中央守護區置放玩家 (col 21, row 37) 與基地 (col 25, row 38)
-    const gridCols = this.map.length; // 52
-    const offsetC = (gridCols === 52) ? 13 : 0;
-    const offsetR = (gridCols === 52) ? 13 : 0;
+    // 自動從 obstacle 層讀取可破壞物件與地雷
+    const MAP = this.mapObstacle;
+    if (MAP && MAP.length > 0) {
+      for (let r = 0; r < MAP.length; r++) {
+        if (!MAP[r]) continue;
+        for (let c = 0; c < MAP[r].length; c++) {
+          const t = MAP[r][c];
+          const px = c * this.tileSize;
+          const py = r * this.tileSize;
+          if (t === TILE_EXT.BARREL) {
+            this.props.push(new DestructibleProp(px, py, 'barrel'));
+            MAP[r][c] = 0;
+          } else if (t === TILE_EXT.STUMP) {
+            this.props.push(new DestructibleProp(px, py, 'stump'));
+            MAP[r][c] = 0;
+          } else if (t === TILE_EXT.SHACK) {
+            this.props.push(new DestructibleProp(px, py, 'shack'));
+            MAP[r][c] = 0;
+          } else if (t === TILE_EXT.MINE) {
+            this.mines.push(new LandMine(px, py));
+            MAP[r][c] = 0;
+          }
+        }
+      }
+      // 重新生成 subMap
+      this.subMap = MapDataGenerator.convertToSubMap(MAP);
+    }
 
-    this.player1 = new Tank((8 + offsetC) * this.tileSize, (24 + offsetR) * this.tileSize, true, 1);
-    this.player2 = this.gameMode === '2P' ? new Tank((16 + offsetC) * this.tileSize, (24 + offsetR) * this.tileSize, true, 2) : null;
-    this.eagleBase = new EagleBase((12 + offsetC) * this.tileSize, (24 + offsetR) * this.tileSize);
+    // 給地圖 26x26，玩家與基地在中間區
+    const gridCols = this.map.length || 26; // 26
+    const offsetC = 0;
+    const offsetR = 0;
+
+    this.player1 = new Tank((8 + offsetC) * this.tileSize, (22 + offsetR) * this.tileSize, true, 1);
+    this.player2 = this.gameMode === '2P' ? new Tank((16 + offsetC) * this.tileSize, (22 + offsetR) * this.tileSize, true, 2) : null;
+    this.eagleBase = new EagleBase((12 + offsetC) * this.tileSize, (23 + offsetR) * this.tileSize);
 
     // 每 5 關登場 Boss
     if (stageNum % 5 === 0) {
@@ -319,7 +369,8 @@ export class GameEngine {
         lives2: this.lives2,
         enemiesLeft: Math.max(0, this.enemiesRemaining),
         bossHp: this.boss ? this.boss.hp : 0,
-        bossMaxHp: this.boss ? this.boss.maxHp : 0
+        bossMaxHp: this.boss ? this.boss.maxHp : 0,
+        theme: this.currentTheme,
       });
     }
   }
@@ -382,20 +433,23 @@ export class GameEngine {
   update() {
     if (this.state !== 'PLAYING' || this.isPaused) return;
 
-    const gridCols = this.map ? this.map.length : 52;
-    const worldWidth = gridCols * this.tileSize;
+    // 世界大小以 mapObstacle（26x26）× 64px 計算
+    const obstMap = this.mapObstacle && this.mapObstacle.length > 0 ? this.mapObstacle : this.map;
+    const gridCols = obstMap ? obstMap.length : 26;
+    const worldWidth  = gridCols * this.tileSize;
     const worldHeight = gridCols * this.tileSize;
 
-    // 1. 平滑跟隨攝影機 Camera Target Calculation
+    // 1. 平滑跟隨攝影機（64px 坦克中心 = x+32）
+    const HALF = this.tileSize / 2; // 32
     if (this.player1 && this.player1.alive) {
-      this.camera.targetX = (this.player1.x + 12) - this.canvas.width / 2;
-      this.camera.targetY = (this.player1.y + 12) - this.canvas.height / 2;
+      this.camera.targetX = (this.player1.x + HALF) - this.canvas.width  / 2;
+      this.camera.targetY = (this.player1.y + HALF) - this.canvas.height / 2;
     }
-    this.camera.targetX = Math.max(0, Math.min(worldWidth - this.canvas.width, this.camera.targetX));
-    this.camera.targetY = Math.max(0, Math.min(worldHeight - this.canvas.height, this.camera.targetY));
+    this.camera.targetX = Math.max(0, Math.min(Math.max(0, worldWidth  - this.canvas.width),  this.camera.targetX));
+    this.camera.targetY = Math.max(0, Math.min(Math.max(0, worldHeight - this.canvas.height), this.camera.targetY));
 
-    this.camera.x += (this.camera.targetX - this.camera.x) * 0.1;
-    this.camera.y += (this.camera.targetY - this.camera.y) * 0.1;
+    this.camera.x += (this.camera.targetX - this.camera.x) * 0.12;
+    this.camera.y += (this.camera.targetY - this.camera.y) * 0.12;
 
     // 2. 玩家 1 & 2 物理移動
     [this.player1, this.player2].forEach((p, idx) => {
@@ -403,20 +457,20 @@ export class GameEngine {
       p.update();
 
       let moveSpeed = p.speed;
-      // 多元地形交互：泥沼減速 & 加速軌道
-      const pTileCol = Math.floor((p.x + 12) / this.tileSize);
-      const pTileRow = Math.floor((p.y + 12) / this.tileSize);
-      if (this.map && this.map[pTileRow] && this.map[pTileRow][pTileCol]) {
-        const curTile = this.map[pTileRow][pTileCol];
+      // 多元地形交互：泥沼減速 & 加速軌道（64px 坦克中心 = x+32）
+      const pTileCol = Math.floor((p.x + HALF) / this.tileSize);
+      const pTileRow = Math.floor((p.y + HALF) / this.tileSize);
+      const curMap = this.mapObstacle && this.mapObstacle.length > 0 ? this.mapObstacle : this.map;
+      if (curMap && curMap[pTileRow] && curMap[pTileRow][pTileCol] !== undefined) {
+        const curTile = curMap[pTileRow][pTileCol];
         if (curTile === TILE.SAND) moveSpeed *= 0.5;
         else if (curTile === TILE.BOOST) moveSpeed *= 1.7;
         else if (curTile === TILE.LAVA) {
-          this.particles.createSparks(p.x + 12, p.y + 12, '#ff4800', 2);
+          this.particles.createSparks(p.x + HALF, p.y + HALF, '#ff4800', 2);
         } else if (curTile === TILE.PORTAL) {
-          // 4 角躍遷對角傳送
-          p.x = worldWidth - p.x - 24;
-          p.y = worldHeight - p.y - 24;
-          this.particles.createShockwave(p.x + 12, p.y + 12, '#f72585');
+          p.x = worldWidth - p.x - this.tileSize;
+          p.y = worldHeight - p.y - this.tileSize;
+          this.particles.createShockwave(p.x + HALF, p.y + HALF, '#f72585');
           this.audioEngine.playSfx("time_freeze");
         }
       }
@@ -445,8 +499,10 @@ export class GameEngine {
       }
 
       if (dx !== 0 || dy !== 0) {
-        let nx = Math.max(0, Math.min(worldWidth - 24, p.x + dx));
-        let ny = Math.max(0, Math.min(worldHeight - 24, p.y + dy));
+        const pW = p.width || this.tileSize;
+        const pH = p.height || this.tileSize;
+        let nx = Math.max(0, Math.min(worldWidth  - pW, p.x + dx));
+        let ny = Math.max(0, Math.min(worldHeight - pH, p.y + dy));
         if (this.canMoveTo(nx, ny, p)) {
           p.x = nx;
           p.y = ny;
@@ -468,42 +524,109 @@ export class GameEngine {
       const col = spawnCols[Math.floor(Math.random() * spawnCols.length)];
 
       const currentStg = this.levelManager.currentStage;
-      let enemyPool = ['basic', 'basic', 'fast'];
-      if (currentStg > 100) enemyPool = ['armor', 'fast', 'power'];
-      else if (currentStg > 40) enemyPool = ['basic', 'fast', 'power', 'armor'];
+      // 五期主題的敵人池（包含新類型）
+      let enemyPool;
+      if (currentStg > 160) {
+        // 熊岩古寺：重装 + 自爆 + 追蹤
+        enemyPool = ['armor', 'armor', 'fast', 'power', 'kamikaze', 'chaser'];
+      } else if (currentStg > 120) {
+        // 燙岫工廠：巡邏 + 重装 + 追蹤
+        enemyPool = ['armor', 'fast', 'power', 'patrol', 'patrol', 'chaser'];
+      } else if (currentStg > 80) {
+        // 雪原冰地：巡邏 + 雑兵 + 追蹤
+        enemyPool = ['basic', 'fast', 'power', 'armor', 'patrol', 'chaser'];
+      } else if (currentStg > 40) {
+        // 廢墓裂基：巡邏 + 自爆 + 雑兵
+        enemyPool = ['basic', 'fast', 'power', 'armor', 'patrol', 'kamikaze'];
+      } else {
+        // 戰祸村莊：基本 + 流彎
+        enemyPool = ['basic', 'basic', 'fast'];
+      }
 
       const type = enemyPool[Math.floor(Math.random() * enemyPool.length)];
-      this.enemiesOnField.push(new EnemyTank(col * this.tileSize, 0, type));
+      let newEnemy;
+      if (type === 'chaser') {
+        newEnemy = new ChaserTank(col * this.tileSize, 0);
+      } else if (type === 'patrol') {
+        newEnemy = new PatrolTank(col * this.tileSize, 0);
+      } else if (type === 'kamikaze') {
+        newEnemy = new KamikazeTank(col * this.tileSize, 0);
+      } else {
+        newEnemy = new EnemyTank(col * this.tileSize, 0, type);
+      }
+      this.enemiesOnField.push(newEnemy);
       this.totalEnemiesToSpawn--;
     }
 
     // 4. 更新敵軍
     this.enemiesOnField.forEach(enemy => {
       if (!enemy.alive || enemy.isFrozen) return;
-      enemy.update();
-
-      if (Math.random() < 0.02) enemy.dir = Math.floor(Math.random() * 4);
-      let nx = enemy.x;
-      let ny = enemy.y;
-      const actualSpeed = enemy.speed;
-
-      if (enemy.dir === DIR.UP) ny -= actualSpeed;
-      else if (enemy.dir === DIR.RIGHT) nx += actualSpeed;
-      else if (enemy.dir === DIR.DOWN) ny += actualSpeed;
-      else if (enemy.dir === DIR.LEFT) nx -= actualSpeed;
-
-      if (this.canMoveTo(nx, ny, enemy)) {
-        enemy.x = nx;
-        enemy.y = ny;
+      // 特化 AI：追蹤型
+      if (enemy.isChaser && this.player1 && this.player1.alive) {
+        enemy.updateChaser(this.player1, this);
+      } else if (enemy.isPatrol) {
+        enemy.updatePatrol(this);
+      } else if (enemy.isKamikaze && this.player1 && this.player1.alive) {
+        enemy.updateKamikaze(this.player1, this);
       } else {
-        enemy.dir = Math.floor(Math.random() * 4);
+        // 一般敵人
+        enemy.update();
+        if (Math.random() < 0.02) enemy.dir = Math.floor(Math.random() * 4);
+        let nx = enemy.x;
+        let ny = enemy.y;
+        const actualSpeed = enemy.speed;
+
+        if (enemy.dir === DIR.UP) ny -= actualSpeed;
+        else if (enemy.dir === DIR.RIGHT) nx += actualSpeed;
+        else if (enemy.dir === DIR.DOWN) ny += actualSpeed;
+        else if (enemy.dir === DIR.LEFT) nx -= actualSpeed;
+
+        if (this.canMoveTo(nx, ny, enemy)) {
+          enemy.x = nx;
+          enemy.y = ny;
+        } else {
+          enemy.dir = Math.floor(Math.random() * 4);
+        }
       }
 
-      if (enemy.cooldown <= 0 && Math.random() < 0.04) {
-        enemy.cooldown = 35;
-        this.bullets.push(new Bullet(enemy.x + 12, enemy.y + 12, enemy.dir, false, 'normal'));
+      // 敵人射擊
+      const halfSize = (enemy.width || 64) / 2;
+      if (enemy.cooldown <= 0 && Math.random() < 0.03) {
+        enemy.cooldown = 45;
+        this.bullets.push(new Bullet(enemy.x + halfSize, enemy.y + halfSize, enemy.dir, false, 'normal'));
       }
     });
+
+    // 4b. 可破壞物件更新
+    this.props.forEach(prop => prop.update && prop.update());
+
+    // 4c. 地雷觸發判斷
+    const allTanks = [this.player1, this.player2, ...this.enemiesOnField].filter(t => t && t.alive);
+    for (let i = this.mines.length - 1; i >= 0; i--) {
+      const mine = this.mines[i];
+      if (!mine.alive) { this.mines.splice(i, 1); continue; }
+      for (const tank of allTanks) {
+        if (this.checkOverlap(tank.x, tank.y, tank.width || 64, tank.height || 64,
+                              mine.x, mine.y, 32, 32)) {
+          mine.alive = false;
+          this.particles.createExplosion(mine.x + 16, mine.y + 16, '#ff4800', 20);
+          this.audioEngine.playSfx('explosion_big');
+          if (tank.isPlayer && !tank.hasShield && !tank.isInvulnerable) {
+            // 地雷傷害玩家
+            if (tank.playerNum === 1) { this.lives1--; if (this.lives1 > 0) tank.respawn(8 * this.tileSize, 22 * this.tileSize); else tank.alive = false; }
+            else { this.lives2--; if (this.lives2 > 0) tank.respawn(16 * this.tileSize, 22 * this.tileSize); else tank.alive = false; }
+            this.triggerScreenShake();
+          } else if (!tank.isPlayer) {
+            tank.alive = false;
+            this.score += 100;
+            this.enemiesOnField = this.enemiesOnField.filter(e => e.alive);
+            this.enemiesRemaining = Math.max(0, this.enemiesRemaining - 1);
+          }
+          this.mines.splice(i, 1);
+          break;
+        }
+      }
+    }
 
     // 5. Boss AI (Boss Battle)
     if (this.boss && this.boss.alive && !this.boss.isFrozen) {
@@ -607,7 +730,7 @@ export class GameEngine {
       } else {
         // 敵彈打玩家
         [this.player1, this.player2].forEach(p => {
-          if (p && p.alive && this.checkOverlap(b.x - 3, b.y - 3, 6, 6, p.x, p.y, 24, 24)) {
+          if (p && p.alive && this.checkOverlap(b.x - 3, b.y - 3, 6, 6, p.x, p.y, p.width || 64, p.height || 64)) {
             b.alive = false;
             if (p.isInvulnerable || p.hasShield) {
               this.audioEngine.playSfx("hit_steel");
