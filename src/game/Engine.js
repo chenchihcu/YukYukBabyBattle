@@ -421,10 +421,12 @@ export class GameEngine {
             2
           )
         : null;
-    this.eagleBase = new EagleBase(
-      (12 + offsetC) * this.tileSize,
-      (23 + offsetR) * this.tileSize
-    );
+    const mapWidthInSmallTiles = this.subMap[0].length;
+    const mapHeightInSmallTiles = this.subMap.length;
+    const baseX = (mapWidthInSmallTiles / 2 - 1) * this.subTileSize;
+    const baseY = (mapHeightInSmallTiles - 2) * this.subTileSize;
+    
+    this.eagleBase = new EagleBase(baseX, baseY);
 
     // 每 5 關登場 Boss
     if (stageNum % 5 === 0) {

@@ -122,19 +122,9 @@ export class MapDataGenerator {
     );
 
     // 1. 放置底層 鷹徽基地 Eagle Base
-    grid[24][12] = TILE.BRICK;
-    grid[24][13] = TILE.BRICK;
-    grid[25][12] = TILE.BRICK;
-    grid[25][13] = TILE.BASE; // 鷹徽核心
-
-    grid[23][11] = TILE.BRICK;
-    grid[23][12] = TILE.BRICK;
-    grid[23][13] = TILE.BRICK;
-    grid[23][14] = TILE.BRICK;
-    grid[24][11] = TILE.BRICK;
-    grid[24][14] = TILE.BRICK;
-    grid[25][11] = TILE.BRICK;
-    grid[25][14] = TILE.BRICK;
+    // 在 26x26 網格中，標記 [25][12] 為基地核心點。
+    // convertToSubMap 會將其轉換為完美的 2x2 小格基地及 1 小格厚的 U 型牆。
+    grid[25][12] = TILE.BASE;
 
     // 2. 定義玩家與敵人出生防禦保護區
     const clearSpots = [
@@ -384,10 +374,38 @@ export class MapDataGenerator {
       if (!grid[r]) continue;
       for (let c = 0; c < cols; c++) {
         const t = grid[r][c];
-        subGrid[r * 2][c * 2] = t;
-        subGrid[r * 2][c * 2 + 1] = t;
-        subGrid[r * 2 + 1][c * 2] = t;
-        subGrid[r * 2 + 1][c * 2 + 1] = t;
+        if (t === TILE.BASE) {
+          // 動態生成精確比例的 2x2 基地與 U 型磚牆 (比例修正)
+          // grid[r][c] 在 26x26 大圖是 c=12，對應小格 24, 25。為了居中(25,26)，向右偏移 1 格
+          const subR = r * 2;
+          const subC = c * 2 + 1; // 將中心對齊 52 寬度的小網格中央
+
+          // 核心基地碰撞區
+          subGrid[subR][subC] = TILE.BASE;
+          subGrid[subR][subC + 1] = TILE.BASE;
+          subGrid[subR + 1][subC] = TILE.BASE;
+          subGrid[subR + 1][subC + 1] = TILE.BASE;
+
+          // U 型磚牆 (1 格厚)
+          // 頂牆
+          if (subR - 1 >= 0) {
+            subGrid[subR - 1][subC - 1] = TILE.BRICK;
+            subGrid[subR - 1][subC] = TILE.BRICK;
+            subGrid[subR - 1][subC + 1] = TILE.BRICK;
+            subGrid[subR - 1][subC + 2] = TILE.BRICK;
+          }
+          // 左牆
+          subGrid[subR][subC - 1] = TILE.BRICK;
+          if (subR + 1 < subRows) subGrid[subR + 1][subC - 1] = TILE.BRICK;
+          // 右牆
+          subGrid[subR][subC + 2] = TILE.BRICK;
+          if (subR + 1 < subRows) subGrid[subR + 1][subC + 2] = TILE.BRICK;
+        } else if (t !== TILE.EMPTY) {
+          subGrid[r * 2][c * 2] = t;
+          subGrid[r * 2][c * 2 + 1] = t;
+          subGrid[r * 2 + 1][c * 2] = t;
+          subGrid[r * 2 + 1][c * 2 + 1] = t;
+        }
       }
     }
     return subGrid;

@@ -1,7 +1,7 @@
 import { GameEngine } from './src/game/Engine.js';
 import { Bullet, Tank, DIR } from './src/game/Entities.js';
 
-class MockLevelManager { loadStage() { return []; } }
+class MockLevelManager { loadStage() { return new Array(26).fill(new Array(26).fill(0)); } }
 class MockAudioEngine { playSfx() {} stopBgm() {} }
 class MockWeaponsManager { 
   constructor() {
@@ -12,7 +12,10 @@ class MockWeaponsManager {
   isActive() { return false; }
 }
 
-const canvas = { getContext: () => ({ fillRect: () => {}, save: () => {}, restore: () => {}, translate: () => {}, rotate: () => {}, scale: () => {} }), classList: { add: () => {}, remove: () => {} }, width: 800, height: 600 };
+const window = { innerWidth: 800, innerHeight: 600, addEventListener: () => {} };
+global.window = window;
+
+const canvas = { getContext: () => ({ fillRect: () => {}, save: () => {}, restore: () => {}, translate: () => {}, rotate: () => {}, scale: () => {} }), classList: { add: () => {}, remove: () => {} }, width: 800, height: 600, addEventListener: () => {} };
 const uiCallbacks = { onStageClear: () => {}, onGameOver: () => {} };
 
 const engine = new GameEngine(

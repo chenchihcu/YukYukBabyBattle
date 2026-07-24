@@ -656,18 +656,18 @@ export class PowerUpItem {
 
 // ===== 16-bit 鷹徽基地 Eagle Base =====
 export class EagleBase {
-  constructor(x = 12 * 64, y = 24 * 64) {
+  constructor(x = 13 * 64, y = 25 * 64) {
     this.x = x;
     this.y = y;
-    this.width = 128; // 佔地 2x2 個 64px 磁磚
-    this.height = 128;
+    this.width = 64; // 佔地 1x1 個 64px 磁磚
+    this.height = 64;
     this.alive = true;
   }
 
   render(ctx) {
     ctx.save();
     ctx.translate(this.x, this.y);
-    ctx.scale(128 / 48, 128 / 48); // 從原 48px 放大到 128px
+    ctx.scale(64 / 48, 64 / 48); // 從原 48px 放大到 64px
     if (this.alive) {
       // 16-bit 石材與鍍金鷹徽
       ctx.fillStyle = '#263238';
