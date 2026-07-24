@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>鋼鐵前線 1988 - 線上坦克大戰 (Tank Front 1988)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Press+Start+2P&family=Noto+Sans+TC:wght@400;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./src/style.css">
+</head>
+<body>
+  <div id="app" class="game-container">
+    <!-- 頂部高光與金屬條裝飾 -->
+    <div class="top-frame-bar">
+      <div class="brand-badge"><span class="badge-icon">★</span> 鋼鐵前線 1988 <span class="badge-icon">★</span></div>
+      <div class="url-display">https://tankfront88.com/play</div>
+      <div class="top-window-controls">
+        <span class="win-btn win-min"></span>
+        <span class="win-btn win-max"></span>
+        <span class="win-btn win-close"></span>
+      </div>
+    </div>
+
+    <div class="main-layout">
+      <!-- ===== 左側邊欄 Panel ===== -->
+      <aside class="sidebar left-sidebar metal-panel">
+        <div class="panel-header game-title-header">
+          <h1 class="title-main">鋼鐵前線</h1>
+          <div class="title-sub">1988</div>
+          <div class="title-tag">★ 線上坦克大戰 ★</div>
+        </div>
+
+        <!-- 戰況資訊 Section -->
+        <section class="section-box battle-status-box">
+          <div class="box-title">戰況資訊</div>
+          <div class="status-row">
+            <span class="label">關卡</span>
+            <span class="value gold-text" id="ui-current-stage">001 / 200</span>
+          </div>
+          <div class="status-row">
+            <span class="label">分數</span>
+            <span class="value yellow-text" id="ui-score">0000000</span>
+          </div>
+          <div class="status-row">
+            <span class="label">P1 坦克</span>
+            <div class="lives-container" id="ui-lives">
+              <span class="tank-life-icon"></span>
+              <span class="tank-life-icon"></span>
+              <span class="tank-life-icon"></span>
+            </div>
+          </div>
+          <div class="status-row" id="row-p2-lives">
+            <span class="label">P2 坦克</span>
+            <div class="lives-container" id="ui-lives-p2">
+              <span class="tank-life-icon p2-icon"></span>
+              <span class="tank-life-icon p2-icon"></span>
+              <span class="tank-life-icon p2-icon"></span>
+            </div>
+          </div>
+          <div class="status-row">
+            <span class="label">剩餘敵人</span>
+            <span class="value red-text" id="ui-enemies-left">20</span>
+          </div>
+        </section>
+
+        <!-- 迷你地圖 Section -->
+        <section class="section-box minimap-box">
+          <div class="box-title">迷你地圖</div>
+          <div class="minimap-wrapper">
+            <canvas id="minimap-canvas" width="160" height="160"></canvas>
+            <div class="radar-sweep"></div>
+          </div>
+        </section>
+
+        <!-- 下一關預覽 Section -->
+        <section class="section-box preview-box">
+          <div class="box-title-nav">
+            <button class="nav-arrow-btn" id="btn-prev-stage">&lt;</button>
+            <span class="preview-title" id="preview-stage-label">預覽第 002 關</span>
+            <button class="nav-arrow-btn" id="btn-next-stage">&gt;</button>
+          </div>
+          <div class="preview-wrapper">
+            <canvas id="preview-canvas" width="160" height="120"></canvas>
+          </div>
+        </section>
+      </aside>
+
+      <!-- ===== 中間主戰場 Main Battlefield ===== -->
+      <main class="battlefield-container metal-panel">
+        <div class="battlefield-header">
+          <div class="stage-wing-left"></div>
+          <div class="stage-title-display">
+            <span class="stage-text">STAGE</span>
+            <span class="stage-number" id="battle-stage-num">001</span>
+          </div>
+          <div class="stage-wing-right"></div>
+        </div>
+
+        <div class="canvas-viewport" id="canvas-viewport">
+          <canvas id="game-canvas" width="624" height="624"></canvas>
+          <div id="crt-overlay" class="crt-scanline-overlay"></div>
+
+          <!-- 巨型 Boss 血條 HUD -->
+          <div id="boss-hud-bar" class="boss-hud-overlay hidden">
+            <div class="boss-title">⚠️ BOSS WARNING: 超級重型巨型機械庫 ⚠️</div>
+            <div class="boss-hp-bg">
+              <div id="boss-hp-fill" class="boss-hp-fill" style="width: 100%;">40 / 40</div>
+            </div>
+          </div>
+          
+          <!-- 戰術 HUD Overlay -->
+          <div id="tactical-hud" class="tactical-hud-overlay">
+            <div class="hud-top-bar">
+              <div class="hud-item dash-indicator">
+                <span class="hud-label">DASH [右鍵/SHIFT]</span>
+                <div class="hud-bar-bg"><div id="hud-dash-bar" class="hud-bar-fill ready">READY</div></div>
+              </div>
+              <div class="hud-item weapon-indicator">
+                <span class="hud-label">WEAPON [左鍵射擊]</span>
+                <div id="hud-weapon-name" class="hud-text-glow">標準主砲</div>
+              </div>
+              <div class="hud-item mode-indicator">
+                <span id="hud-mode-badge" class="hud-badge">鍵鼠 360° 模式</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 遊戲狀態 Overlay -->
+          <div id="game-overlay" class="overlay">
+            <div class="overlay-card">
+              <h2 id="overlay-title">鋼鐵前線 1988</h2>
+              <p id="overlay-subtitle">點擊「開始作戰」或按下 ENTER / SPACE 鍵</p>
+              <div class="mode-select-row">
+                <button id="btn-mode-1p" class="mode-tab-btn active">🎮 1P 單人作戰</button>
+                <button id="btn-mode-2p" class="mode-tab-btn">⚔️ 2P 雙人合作</button>
+              </div>
+              <div class="overlay-buttons">
+                <button id="btn-start-game" class="arcade-btn primary-btn pulse-glow">⚔️ 開始作戰</button>
+                <button id="btn-select-stage" class="arcade-btn secondary-btn">🗺️ 選擇關卡 (1~200)</button>
+                <button id="btn-stage-editor" class="arcade-btn info-btn">🛠️ 地圖編輯器</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 超任戰報結算 Overlay -->
+          <div id="score-tally-overlay" class="overlay hidden">
+            <div class="tally-card metal-panel">
+              <div class="tally-header">
+                <div id="tally-title" class="tally-title-text">STAGE 001 CLEAR!</div>
+                <div class="tally-sub-title">★ BATTLE RESULTS ★</div>
+              </div>
+
+              <!-- 擊殺列表網格 -->
+              <div class="tally-body" id="tally-body-grid">
+                <!-- JS 動態生成 P1 / P2 擊殺計分行 -->
+              </div>
+
+              <!-- 總分與等級結算 -->
+              <div class="tally-footer">
+                <div class="tally-total-row">
+                  <span class="total-label">TOTAL SCORE</span>
+                  <span id="tally-total-score" class="total-value">0000000</span>
+                </div>
+                <div class="tally-rank-row">
+                  <span class="rank-label">EVALUATION</span>
+                  <span id="tally-rank-badge" class="rank-badge rank-s">ACE ★★★</span>
+                </div>
+                <button id="btn-tally-continue" class="arcade-btn primary-btn pulse-glow">⚔️ 進入下一關 (SPACE)</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <!-- ===== 右側邊欄 Panel ===== -->
+      <aside class="sidebar right-sidebar metal-panel">
+        <!-- 遊戲特色 Box -->
+        <section class="section-box features-box">
+          <div class="box-title gold-border">遊戲特色</div>
+          <div class="feature-item">
+            <div class="feature-icon trophy-icon">🏆</div>
+            <div class="feature-info">
+              <div class="feature-title"><span class="highlight">200</span> 關卡</div>
+              <div class="feature-desc">豐富多變的戰場挑戰！</div>
+            </div>
+          </div>
+          <div class="feature-item">
+            <div class="feature-icon weapon-icon">🚀</div>
+            <div class="feature-info">
+              <div class="feature-title"><span class="highlight">40</span> 種武器 / 強化</div>
+              <div class="feature-desc">策略搭配，打造最強坦克！</div>
+            </div>
+          </div>
+          <div class="feature-item">
+            <div class="feature-icon music-icon">🎵</div>
+            <div class="feature-info">
+              <div class="feature-title"><span class="highlight">50</span> 種音效 / 交響樂</div>
+              <div class="feature-desc">沉浸式的懷舊聽覺享受！</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 武器 / 強化一覽 Grid Box (40種) -->
+        <section class="section-box weapons-box">
+          <div class="box-title-bar">
+            <span>武器 / 強化一覽 (40種)</span>
+            <div class="page-indicator" id="weapon-page-text">頁次 1 / 3</div>
+          </div>
+
+          <div class="weapons-grid-container" id="weapons-grid">
+            <!-- JS 動態渲染卡片 -->
+          </div>
+
+          <div class="weapon-detail-tooltip" id="weapon-tooltip">
+            <div class="tooltip-title" id="tool-title">點擊圖標切換啟用/鎖定</div>
+            <div class="tooltip-desc" id="tool-desc">拾取戰場中掉落的寶箱即可解鎖對應強化技能。</div>
+          </div>
+
+          <div class="weapons-pager">
+            <button class="pager-btn" id="btn-weapon-prev">◀ 上一頁</button>
+            <button class="pager-btn" id="btn-weapon-next">下一頁 ▶</button>
+          </div>
+        </section>
+      </aside>
+    </div>
+
+    <!-- ===== 底部控制條 Footer Controls ===== -->
+    <footer class="footer-controls metal-panel">
+      <div class="control-group controls-guide">
+        <span class="group-label">操作說明</span>
+        <div class="key-hints">
+          <span class="key-badge">↑</span><span class="key-badge">↓</span><span class="key-badge">←</span><span class="key-badge">→</span>
+          <span class="hint-text">移動</span>
+          <span class="key-badge">Z</span>
+          <span class="hint-text">射擊</span>
+          <span class="key-badge">X</span>
+          <span class="hint-text">特殊武器</span>
+          <span class="key-badge">C</span>
+          <span class="hint-text">放置道具</span>
+        </div>
+      </div>
+
+      <div class="control-group player-status">
+        <span class="group-label">坦克生命</span>
+        <div class="lives-mini-icons" id="footer-lives">
+          <span class="mini-tank-icon active"></span>
+          <span class="mini-tank-icon active"></span>
+          <span class="mini-tank-icon active"></span>
+        </div>
+      </div>
+
+      <div class="control-group audio-controls">
+        <div class="audio-slider-item">
+          <span class="audio-label">音樂 🎵</span>
+          <input type="range" id="bgm-slider" min="0" max="100" value="60">
+        </div>
+        <div class="audio-slider-item">
+          <span class="audio-label">音效 🔊</span>
+          <input type="range" id="sfx-slider" min="0" max="100" value="80">
+        </div>
+      </div>
+
+      <div class="control-group settings-group">
+        <button class="icon-setting-btn" id="btn-toggle-25d" title="2.5D Mode 7視角">📐 2.5D視角</button>
+        <button class="icon-setting-btn" id="btn-toggle-weather" title="切換氣候">🌧️ 天氣</button>
+        <button class="icon-setting-btn" id="btn-toggle-crt" title="CRT復古濾鏡">📺 CRT濾鏡</button>
+        <button class="icon-setting-btn" id="btn-toggle-arcade" title="超任街機框體">🕹️ 街機框體</button>
+        <button class="icon-setting-btn" id="btn-open-settings" title="遊戲設定">⚙️ 設定</button>
+      </div>
+    </footer>
+  </div>
+
+  <!-- ===== 1. 遊戲設定 Modal ===== -->
+  <div id="settings-modal" class="modal-dialog hidden">
+    <div class="modal-content metal-panel">
+      <div class="modal-header">
+        <h3>⚙️ 遊戲設定 (Settings)</h3>
+        <button class="modal-close-btn" id="close-settings-modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="setting-item">
+          <label>操作控制模式：</label>
+          <select id="setting-control-mode" class="modal-select">
+            <option value="mouse_keyboard" selected>雙手鍵鼠模式 (WASD移動 + 滑鼠360°瞄準射擊 + 右鍵衝刺)</option>
+            <option value="keyboard_only">經典純鍵盤模式 (方向鍵/WASD移動 + Z/Space發射)</option>
+            <option value="mouse_only">純滑鼠模式 (左鍵移動/射擊 + 右鍵衝刺)</option>
+          </select>
+        </div>
+        <div class="setting-item">
+          <label>遊戲難度：</label>
+          <select id="setting-difficulty" class="modal-select">
+            <option value="easy">簡單 (敵速度 slow / 少量)</option>
+            <option value="normal" selected>普通 (經典體驗)</option>
+            <option value="hard">困難 (敵速快 / 高爆發)</option>
+            <option value="nightmare">地獄 (極速子彈彈幕)</option>
+          </select>
+        </div>
+        <div class="setting-item">
+          <label>CRT 復古掃描線濾鏡：</label>
+          <button id="modal-btn-toggle-crt" class="arcade-btn secondary-btn">切換 CRT 濾鏡 (開/關)</button>
+        </div>
+        <div class="setting-item">
+          <label>超任街機框體模式：</label>
+          <button id="modal-btn-toggle-arcade" class="arcade-btn secondary-btn">切換 Arcade 框體 (開/關)</button>
+        </div>
+        <div class="setting-item">
+          <label>全螢幕模式：</label>
+          <button id="btn-toggle-fullscreen" class="arcade-btn secondary-btn">切換全螢幕 (Fullscreen)</button>
+        </div>
+        <div class="setting-item">
+          <label>主選單音樂音效：</label>
+          <button id="btn-toggle-mute" class="arcade-btn secondary-btn">靜音 / 開啟聲音</button>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="save-settings-btn" class="arcade-btn primary-btn">儲存並返回</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 2. 選擇關卡 Modal (1 ~ 200關) ===== -->
+  <div id="stage-select-modal" class="modal-dialog hidden">
+    <div class="modal-content metal-panel modal-large">
+      <div class="modal-header">
+        <h3>🗺️ 選擇關卡 (Stage Selector 1~200)</h3>
+        <button class="modal-close-btn" id="close-stage-modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="stage-grid-search">
+          <span>跳轉頁次：</span>
+          <button class="pager-btn" id="stage-page-prev">◀ 上 50 關</button>
+          <span id="stage-page-label">關卡 1 - 50</span>
+          <button class="pager-btn" id="stage-page-next">下 50 關 ▶</button>
+        </div>
+        <div class="stage-buttons-grid" id="stage-buttons-container">
+          <!-- 1~200 關卡按鈕網格由 JS 生成 -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 3. 地圖編輯器 Modal ===== -->
+  <div id="editor-modal" class="modal-dialog hidden">
+    <div class="modal-content metal-panel modal-large">
+      <div class="modal-header">
+        <h3>🛠️ 自訂地圖編輯器 (Stage Editor)</h3>
+        <button class="modal-close-btn" id="close-editor-modal">&times;</button>
+      </div>
+      <div class="modal-body editor-body-layout">
+        <div class="editor-canvas-container">
+          <canvas id="editor-canvas" width="416" height="416"></canvas>
+        </div>
+        <div class="editor-palette">
+          <h4>繪製筆刷選擇</h4>
+          <div class="palette-tools">
+            <button class="palette-btn active" data-tile="1">🧱 磚牆 (Brick)</button>
+            <button class="palette-btn" data-tile="2">⚙️ 鐵牆 (Steel)</button>
+            <button class="palette-btn" data-tile="3">🌊 水面 (Water)</button>
+            <button class="palette-btn" data-tile="4">🌿 草叢 (Trees)</button>
+            <button class="palette-btn" data-tile="5">🧊 冰地 (Ice)</button>
+            <button class="palette-btn" data-tile="0">🧹 清除 (Empty)</button>
+          </div>
+          <div class="editor-actions">
+            <button id="btn-editor-clear" class="arcade-btn secondary-btn">清空畫板</button>
+            <button id="btn-editor-play" class="arcade-btn primary-btn">🎮 儲存並試玩此關</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
