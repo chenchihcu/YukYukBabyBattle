@@ -97,8 +97,8 @@ function generateStage(stageNum) {
 
   // --- 保護區（玩家/敵人出生點不放障礙）---
   const clearSpots = new Set();
-  // 玩家出生點
-  for (let r = 23; r <= 25; r++) for (let c = 7; c <= 18; c++) clearSpots.add(`${r},${c}`);
+  // 玩家出生點 (配合新的 22 列出生點)
+  for (let r = 22; r <= 25; r++) for (let c = 7; c <= 18; c++) clearSpots.add(`${r},${c}`);
   // 敵人出生點（左中右三處）
   for (let r = 0; r <= 2; r++) {
     for (let c = 0; c <= 3; c++) clearSpots.add(`${r},${c}`);

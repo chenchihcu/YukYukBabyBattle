@@ -628,6 +628,19 @@ export class GameEngine {
       }
     }
 
+    // 4d. 道具拾取判斷 (PowerUps)
+    [this.player1, this.player2].forEach(p => {
+      if (!p || !p.alive) return;
+      for (let i = this.powerUps.length - 1; i >= 0; i--) {
+        const item = this.powerUps[i];
+        if (this.checkOverlap(p.x, p.y, p.width || 64, p.height || 64, item.x, item.y, item.width || 64, item.height || 64)) {
+          this.applyPowerUp(p, item.type);
+          this.powerUps.splice(i, 1);
+          this.audioEngine.playSfx('menu_start'); // 或者如果有 powerup 音效
+        }
+      }
+    });
+
     // 5. Boss AI (Boss Battle)
     if (this.boss && this.boss.alive && !this.boss.isFrozen) {
       this.boss.update();
@@ -719,6 +732,14 @@ export class GameEngine {
             if (enemy.hp <= 0) {
               enemy.alive = false;
               this.score += 200;
+
+              // 15% 機率掉落道具
+              if (Math.random() < 0.15) {
+                const types = ['star', 'shield', 'freeze', 'bomb', 'clock', 'base_wall', 'life', 'laser', 'coin'];
+                const type = types[Math.floor(Math.random() * types.length)];
+                this.powerUps.push(new PowerUpItem(enemy.x, enemy.y, type));
+              }
+
               this.enemiesOnField.splice(j, 1);
               this.enemiesRemaining--;
               this.audioEngine.playSfx("explosion_tank");
@@ -805,6 +826,41 @@ export class GameEngine {
 
   checkOverlap(x1, y1, w1, h1, x2, y2, w2, h2) {
     return x1 < x2 + w2 && x1 + w1 > x2 && y1 < y2 + h2 && y1 + h1 > y2;
+  }
+
+  applyPowerUp(player, type) {
+    this.score += 500;
+    if (type === 'star') {
+      player.starLevel = Math.min(4, player.starLevel + 1);
+    } else if (type === 'shield') {
+      player.hasShield = true;
+      player.shieldTimer = 600; // 10 秒
+    } else if (type === 'freeze' || type === 'clock') {
+      this.enemiesOnField.forEach(e => { e.isFrozen = true; e.freezeTimer = 600; });
+    } else if (type === 'bomb') {
+      this.enemiesOnField.forEach(e => {
+        this.particles.createExplosion(e.x + 32, e.y + 32, '#ff3d00', 20);
+        e.alive = false;
+        this.score += 200;
+        this.enemiesRemaining = Math.max(0, this.enemiesRemaining - 1);
+      });
+      this.enemiesOnField = [];
+      this.audioEngine.playSfx("explosion_big");
+    } else if (type === 'base_wall') {
+      // 將基地外圍變為鋼鐵
+      const coords = [[23,11],[23,12],[23,13],[23,14],[24,11],[24,14],[25,11],[25,14]];
+      coords.forEach(([r, c]) => {
+        if (this.subMap[r] && this.subMap[r][c] !== undefined) {
+          this.subMap[r][c] = 2; // TILE.STEEL
+        }
+      });
+    } else if (type === 'life') {
+      if (player.playerNum === 1) this.lives1++; else this.lives2++;
+    } else if (type === 'laser') {
+      player.weaponType = 'laser';
+    } else if (type === 'coin') {
+      this.score += 1000;
+    }
   }
 
   victory() {
@@ -895,6 +951,11 @@ export class GameEngine {
     // 4. 繪製 玩家 1 & 2
     if (this.player1 && this.player1.alive) this.player1.render(this.ctx);
     if (this.player2 && this.player2.alive) this.player2.render(this.ctx);
+
+    // 4.5 繪製 道具與場景物件
+    this.powerUps.forEach(item => { if (item.alive) item.render(this.ctx); });
+    this.mines.forEach(mine => { if (mine.alive) mine.render(this.ctx); });
+    this.props.forEach(prop => { if (prop.alive) prop.render(this.ctx); });
 
     // 5. 繪製 敵軍
     this.enemiesOnField.forEach(e => { if (e.alive) e.render(this.ctx); });

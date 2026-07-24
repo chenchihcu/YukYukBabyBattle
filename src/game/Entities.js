@@ -545,6 +545,7 @@ export class PowerUpItem {
     else if (this.type === 'life') icon = '❤️';
     else if (this.type === 'laser') icon = '⚡';
     else if (this.type === 'base_wall') icon = '🏰';
+    else if (this.type === 'coin') icon = '💰';
 
     ctx.fillText(icon, 12, 13);
     ctx.restore();
