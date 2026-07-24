@@ -114,6 +114,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   );
 
+  // 除錯用鉤子：僅在開發模式暴露引擎內部狀態，供 .claude/skills/run-tank-front-1988 的 driver 讀取（生產打包 tree-shake 掉此區塊）
+  if (import.meta.env.DEV) {
+    window.__TANK_DEBUG__ = { gameEngine, levelManager, audioEngine, weaponsManager };
+  }
+
   // isSoundOn 必須在 onToggleMute 回調前宣告，供閉包捕捉
   let isSoundOn = true;
 
@@ -639,7 +644,11 @@ document.addEventListener('DOMContentLoaded', () => {
       updateWeaponSelectionUI(num);
     } else if (e.code === 'Enter' || e.code === 'Space') {
       if (!overlay.classList.contains('hidden') && gameEngine.state !== 'PLAYING') {
+        e.preventDefault();
         startGame();
+      } else if (scoreTallyOverlay && !scoreTallyOverlay.classList.contains('hidden')) {
+        e.preventDefault();
+        continueFromTally();
       }
     }
   });
@@ -692,19 +701,23 @@ document.addEventListener('DOMContentLoaded', () => {
     if (tallyTitle) tallyTitle.innerText = isVictory ? `STAGE ${stageFormatted} CLEAR!` : `STAGE ${stageFormatted} FAILED`;
     if (tallyTotalScore) tallyTotalScore.innerText = String(data.score).padStart(7, '0');
     if (tallyRankBadge) tallyRankBadge.innerText = isVictory ? 'ACE ★★★ (S級)' : 'SOLDIER (C級)';
+    if (btnTallyContinue) btnTallyContinue.innerText = isVictory ? '⚔️ 進入下一關 (SPACE)' : '🔁 重新挑戰 (SPACE)';
     renderKillTally(tallyBodyGrid, data.killsP1, data.killsP2, gameEngine.gameMode);
   }
 
+  async function continueFromTally() {
+    if (!scoreTallyOverlay || scoreTallyOverlay.classList.contains('hidden')) return;
+    audioEngine.playSfx("menu_click");
+    scoreTallyOverlay.classList.add('hidden');
+    if (gameEngine.state === 'VICTORY') {
+      await gameEngine.startStage(levelManager.currentStage + 1);
+    } else {
+      await gameEngine.startStage(levelManager.currentStage);
+    }
+  }
+
   if (btnTallyContinue) {
-    btnTallyContinue.addEventListener('click', async () => {
-      audioEngine.playSfx("menu_click");
-      scoreTallyOverlay.classList.add('hidden');
-      if (gameEngine.state === 'VICTORY') {
-        await gameEngine.startStage(levelManager.currentStage + 1);
-      } else {
-        await gameEngine.startStage(levelManager.currentStage);
-      }
-    });
+    btnTallyContinue.addEventListener('click', () => continueFromTally());
   }
 
   // 60FPS 動畫主迴圈
