@@ -181,7 +181,7 @@ export class GameEngine {
 
     // 每 5 關登場巨型 Boss (Boss Battle)
     if (stageNum % 5 === 0) {
-      this.boss = new BossTank(11 * this.tileSize, 2 * this.tileSize);
+      this.boss = new BossTank(11 * this.tileSize, 2 * this.tileSize, stageNum);
       this.totalEnemiesToSpawn = 0; // Boss 關卡專屬決戰
       this.enemiesRemaining = 1;
     } else {
@@ -345,8 +345,21 @@ export class GameEngine {
       this.spawnTimer = 0;
       const spawnCols = [0, 12, 24];
       const col = spawnCols[Math.floor(Math.random() * spawnCols.length)];
-      const enemyTypes = ['basic', 'fast', 'power', 'armor'];
-      const type = enemyTypes[Math.floor(Math.random() * enemyTypes.length)];
+
+      // 依據關卡段數動態調配敵軍陣容 (前 20 關以普通坦克為主，160 關後以重裝/高速坦克為主)
+      const currentStg = this.levelManager.currentStage;
+      let enemyPool = ['basic', 'basic', 'basic', 'fast'];
+      if (currentStg > 160) {
+        enemyPool = ['armor', 'armor', 'fast', 'power'];
+      } else if (currentStg > 110) {
+        enemyPool = ['armor', 'fast', 'power', 'power'];
+      } else if (currentStg > 60) {
+        enemyPool = ['basic', 'fast', 'power', 'armor'];
+      } else if (currentStg > 20) {
+        enemyPool = ['basic', 'basic', 'fast', 'power'];
+      }
+
+      const type = enemyPool[Math.floor(Math.random() * enemyPool.length)];
       this.enemiesOnField.push(new EnemyTank(col * this.tileSize, 0, type));
       this.totalEnemiesToSpawn--;
     }

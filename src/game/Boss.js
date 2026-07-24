@@ -6,18 +6,19 @@ import { DIR, Bullet } from './Entities.js';
 import { SNES_PALETTE } from './MapData.js';
 
 export class BossTank {
-  constructor(x, y) {
+  constructor(x, y, stageNum = 5) {
     this.x = x;
     this.y = y;
     this.width = 96;  // 96x96px (佔地 4x4 大格 / 8x8 微觀格)
     this.height = 96;
     this.dir = DIR.DOWN;
-    this.speed = 0.9;
+    this.speed = 0.9 + (stageNum / 200) * 0.4;
     this.alive = true;
 
-    this.maxHp = 40;
-    this.hp = 40;
-    this.phase = 1; // 1: 標準防禦型, 2: 狂暴電磁彈幕型 (HP <= 20)
+    // Boss 血量隨關卡平滑階梯式成長 (Stage 5: 31 HP, Stage 100: 65 HP, Stage 200: 100 HP)
+    this.maxHp = Math.min(100, Math.floor(30 + (stageNum / 200) * 70));
+    this.hp = this.maxHp;
+    this.phase = 1; // 1: 標準防禦型, 2: 狂暴電磁彈幕型 (HP <= 50%)
 
     this.cooldown = 0;
     this.maxCooldown = 30;

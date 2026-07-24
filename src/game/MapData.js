@@ -101,19 +101,34 @@ export class MapDataGenerator {
       return seed / 233280;
     };
 
-    // 3. 隨機地形分佈 (隨著 Stage 上升，鐵牆與複雜地形比率逐漸提高)
-    const density = Math.min(0.42, 0.22 + (stageNum % 20) * 0.01);
+    // 3. 階段性漸進地形分佈 (1~200 關平滑難易度曲線)
+    // 障礙密度由第 1 關 0.22 逐步提升至第 200 關 0.44
+    const baseDensity = 0.22 + (stageNum / 200) * 0.20;
+    const microVariation = (stageNum % 5) * 0.015;
+    const density = Math.min(0.44, baseDensity + microVariation);
+
+    // 材質比例：前期 (1~40) 80% 磚牆方便破路；後期 (160~200) 鋼牆與冰地比率高達 70%
+    const steelRatio = 0.15 + (stageNum / 200) * 0.45; // 15% ~ 60% 鋼牆
+    const brickRatio = Math.max(0.15, 0.70 - (stageNum / 200) * 0.50); // 70% ~ 15% 磚牆
+
     for (let r = 2; r < 22; r++) {
       for (let c = 2; c < 24; c += 2) {
         const val = rnd();
         if (val < density) {
           const tileType = rnd();
           let t = TILE.BRICK;
-          if (tileType < 0.50 - (stageNum / 400)) t = TILE.BRICK;
-          else if (tileType < 0.72) t = TILE.STEEL;
-          else if (tileType < 0.83) t = TILE.WATER;
-          else if (tileType < 0.92) t = TILE.TREES;
-          else t = TILE.ICE;
+
+          if (tileType < brickRatio) {
+            t = TILE.BRICK;
+          } else if (tileType < brickRatio + steelRatio) {
+            t = TILE.STEEL;
+          } else if (tileType < brickRatio + steelRatio + 0.10) {
+            t = TILE.WATER;
+          } else if (tileType < brickRatio + steelRatio + 0.20) {
+            t = TILE.TREES;
+          } else {
+            t = TILE.ICE;
+          }
 
           grid[r][c] = t;
           grid[r][c + 1] = t;
