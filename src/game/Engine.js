@@ -266,8 +266,8 @@ export class GameEngine {
       ) {
         const worldMouseX = this.mouseX + this.camera.x;
         const worldMouseY = this.mouseY + this.camera.y;
-        const dx = worldMouseX - (this.player1.x + 12);
-        const dy = worldMouseY - (this.player1.y + 12);
+        const dx = worldMouseX - (this.player1.x + 32);
+        const dy = worldMouseY - (this.player1.y + 32);
         this.player1.turretAngle = Math.atan2(dy, dx);
       }
     });
@@ -468,8 +468,8 @@ export class GameEngine {
     if (!p || !p.alive || p.isParalyzed || p.cooldown > 0) return;
     p.cooldown = p.maxCooldown;
 
-    const bx = p.x + 12;
-    const by = p.y + 12;
+    const bx = p.x + 32;
+    const by = p.y + 32;
     const isMouseAim =
       playerNum === 1 &&
       (this.controlMode === 'mouse_keyboard' ||
